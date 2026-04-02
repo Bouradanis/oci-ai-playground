@@ -205,3 +205,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+#OCI
+.oci/
+Wallet*/
+# Ignore wallet zip files
+Wallet*.zip
+
+*_ds.csv
+*_ds.html
