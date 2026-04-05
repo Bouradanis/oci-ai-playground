@@ -4,6 +4,10 @@
       "command": "/home/abourantanis/miniconda3/envs/olist_mcp/bin/python",
       "args": ["/mnt/c/Git_Repos/oci-ai-playground/server.py"],
       "env": {}
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
