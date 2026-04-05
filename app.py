@@ -114,10 +114,6 @@ if run and question:
             st.error(f"Claude API error: {e}")
             st.stop()
 
-    if show_sql:
-        with st.expander("Generated SQL", expanded=True):
-            st.code(sql, language="sql")
-
     with st.spinner("Querying Oracle ADB..."):
         try:
             df = run_sql(sql)
@@ -129,12 +125,25 @@ if run and question:
         st.warning("Query returned no results.")
         st.stop()
 
+    # Store results in session state so sidebar changes don't wipe them
+    st.session_state["df"] = df
+    st.session_state["sql"] = sql
+
+# ── Display results (persists across sidebar interactions) ────────────────────
+if "df" in st.session_state:
+    df = st.session_state["df"]
+    sql = st.session_state["sql"]
+
+    if show_sql:
+        with st.expander("Generated SQL", expanded=True):
+            st.code(sql, language="sql")
+
     col1, col2 = st.columns([1, 1])
 
     with col1:
         st.subheader("Results")
         st.dataframe(df.head(max_rows), use_container_width=True)
-        st.caption(f"{len(df):,} rows returned")
+        st.caption(f"{len(df):,} rows fetched · showing {min(max_rows, len(df)):,}")
 
     with col2:
         st.subheader("Chart")
@@ -142,13 +151,13 @@ if run and question:
             try:
                 x_col, y_col = df.columns[0], df.columns[1]
                 if chart_type == "bar":
-                    fig = px.bar(df, x=x_col, y=y_col)
+                    fig = px.bar(df.head(max_rows), x=x_col, y=y_col)
                 elif chart_type == "line":
-                    fig = px.line(df, x=x_col, y=y_col)
+                    fig = px.line(df.head(max_rows), x=x_col, y=y_col)
                 elif chart_type == "scatter":
-                    fig = px.scatter(df, x=x_col, y=y_col)
+                    fig = px.scatter(df.head(max_rows), x=x_col, y=y_col)
                 elif chart_type == "pie":
-                    fig = px.pie(df, names=x_col, values=y_col)
+                    fig = px.pie(df.head(max_rows), names=x_col, values=y_col)
                 st.plotly_chart(fig, use_container_width=True)
             except Exception as e:
                 st.warning(f"Could not render chart: {e}")
