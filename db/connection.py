@@ -31,4 +31,9 @@ def get_connection() -> oracledb.Connection:
     global _connection
     if _connection is None:
         _connection = _connect()
+        return _connection
+    try:
+        _connection.ping()
+    except Exception:
+        _connection = _connect()
     return _connection
