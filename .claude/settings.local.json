@@ -1,0 +1,19 @@
+{
+  "enabledMcpjsonServers": [
+    "olist"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /mnt/c/Git_Repos/oci-ai-playground/hooks/read_hook.js"
+          }
+        ]
+      }
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}
