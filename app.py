@@ -10,6 +10,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from db.connection import get_connection
+from tools.query import is_safe_sql
 
 load_dotenv(Path(__file__).parent / '.env')
 
@@ -48,6 +49,10 @@ def get_schema_context() -> str:
         "- Use TRUNC(date_col, 'MM') for month truncation",
         "- Use SYSDATE for current date",
         "- product_category_name is in Portuguese — join product_category_translation for English",
+        "\nSecurity rules — strictly enforce these:",
+        "- Only generate SELECT queries. NEVER generate DDL (CREATE, DROP, ALTER, TRUNCATE) or DML (INSERT, UPDATE, DELETE, MERGE).",
+        "- NEVER query system tables (ALL_TABLES, USER_TABLES, DBA_*, V$*, SYS.*).",
+        "- If the question is not about Olist business data, reply with exactly: NOT_A_BUSINESS_QUESTION",
         "\nReturn ONLY the SQL query. No explanation, no markdown, no backticks.",
     ]
     return "\n".join(lines)
@@ -113,6 +118,14 @@ if run and question:
         except Exception as e:
             st.error(f"Claude API error: {e}")
             st.stop()
+
+    if sql == "NOT_A_BUSINESS_QUESTION":
+        st.warning("I can only answer business questions about the Olist e-commerce data.")
+        st.stop()
+
+    if not is_safe_sql(sql):
+        st.error(f"Blocked: only SELECT queries on Olist tables are permitted.")
+        st.stop()
 
     with st.spinner("Querying Oracle ADB..."):
         try:
