@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.express as px
 
 from db.connection import get_connection
-from tools.query import is_safe_sql
 
 CHART_BUILDERS = {
     'bar':     lambda df: px.bar(df, x=df.columns[0], y=df.columns[1]),
@@ -17,9 +16,6 @@ CHART_BUILDERS = {
 def plot_query(sql: str, chart_type: str) -> str:
     if chart_type not in CHART_BUILDERS:
         return f"Unknown chart_type '{chart_type}'. Valid options: {', '.join(CHART_BUILDERS)}"
-
-    if not is_safe_sql(sql):
-        return f"**Blocked:** only SELECT queries on Olist tables are permitted."
 
     conn = get_connection()
     try:
