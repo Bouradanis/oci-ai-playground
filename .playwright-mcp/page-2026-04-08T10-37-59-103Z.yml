@@ -1,0 +1,67 @@
+- generic [ref=e2]:
+  - generic [ref=e24]:
+    - heading "⚙️ Settings" [level=2] [ref=e28]
+    - generic [ref=e30]:
+      - paragraph [ref=e34]: Chart type
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: bar
+          - combobox "Selected bar. Chart type" [ref=e40]
+        - img "open" [ref=e42]
+    - generic [ref=e46] [cursor=pointer]:
+      - checkbox "Show generated SQL" [checked]
+      - paragraph [ref=e52]: Show generated SQL
+    - generic [ref=e55]:
+      - paragraph [ref=e59]: Max rows in table
+      - generic [ref=e60]:
+        - slider "Max rows in table" [ref=e64]:
+          - generic:
+            - generic:
+              - paragraph: "50"
+        - generic:
+          - generic:
+            - paragraph: "10"
+          - generic:
+            - paragraph: "500"
+    - separator [ref=e70]
+    - heading "💡 Example questions" [level=2] [ref=e74]
+    - button "What are the top 10 product categories by revenue?" [ref=e77] [cursor=pointer]:
+      - paragraph [ref=e81]: What are the top 10 product categories by revenue?
+    - button "Show monthly order count trend in 2018" [ref=e84] [cursor=pointer]:
+      - paragraph [ref=e88]: Show monthly order count trend in 2018
+    - button "Which states have the most customers?" [ref=e91] [cursor=pointer]:
+      - paragraph [ref=e95]: Which states have the most customers?
+    - button "What is the average review score by product category?" [ref=e98] [cursor=pointer]:
+      - paragraph [ref=e102]: What is the average review score by product category?
+    - button "Show the distribution of payment types" [ref=e105] [cursor=pointer]:
+      - paragraph [ref=e109]: Show the distribution of payment types
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e7]:
+        - generic [ref=e142]:
+          - img "Running..." [ref=e143]:
+            - img [ref=e144]
+          - button "Stop" [ref=e148] [cursor=pointer]
+        - button "Deploy" [ref=e9] [cursor=pointer]:
+          - generic [ref=e11]: Deploy
+        - button "Main menu" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+    - generic [ref=e112]:
+      - heading "📦 Olist Analytics" [level=1] [ref=e117]:
+        - text: 📦 Olist Analytics
+        - generic [ref=e118]:
+          - link "Link to heading":
+            - /url: "#olist-analytics"
+            - img
+      - paragraph [ref=e123]: Ask questions about Brazilian e-commerce data — powered by Claude + Oracle ADB
+      - generic [ref=e125]:
+        - paragraph [ref=e129]: Ask a question about the Olist data
+        - textbox "Ask a question about the Olist data" [ref=e132]:
+          - /placeholder: e.g. What are the top 10 product categories by revenue?
+          - text: Does OML_USER have Oracle Machine Learning privileges? Check USER_ROLE_PRIVS or SESSION_PRIVS.
+      - button "Run" [active] [ref=e135] [cursor=pointer]:
+        - paragraph [ref=e139]: Run
+      - paragraph [ref=e155]:
+        - text: Running
+        - code [ref=e156]: get_schema_context()
+        - text: .
