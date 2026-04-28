@@ -49,12 +49,13 @@ def get_users_df() -> pd.DataFrame:
             user_groups[m.user_id].append(group_map.get(m.group_id, m.group_id))
 
     return pd.DataFrame([{
-        'name':    u.name,
-        'email':   u.email or '-',
-        'state':   u.lifecycle_state,
-        'mfa':     u.is_mfa_activated,
-        'created': str(u.time_created)[:10],
-        'groups':  ', '.join(user_groups[u.id]) or '(none)',
+        'name':         u.name,
+        'email':        u.email or '-',
+        'state':        u.lifecycle_state,
+        'mfa':          u.is_mfa_activated,
+        'created':      str(u.time_created)[:10],
+        'last_login':   str(u.last_successful_login_time)[:10] if u.last_successful_login_time else 'never',
+        'groups':       ', '.join(user_groups[u.id]) or '(none)',
     } for u in users])
 
 
@@ -126,9 +127,9 @@ def remove_user_from_group(user_name: str, group_name: str) -> str:
 
 def list_iam_users() -> str:
     df = get_users_df()
-    lines = ["| NAME | EMAIL | STATE | MFA | CREATED | GROUPS |", "|---|---|---|---|---|---|"]
+    lines = ["| NAME | EMAIL | STATE | MFA | CREATED | LAST LOGIN | GROUPS |", "|---|---|---|---|---|---|---|"]
     for _, r in df.iterrows():
-        lines.append(f"| {r['name']} | {r['email']} | {r['state']} | {'Yes' if r['mfa'] else 'No'} | {r['created']} | {r['groups']} |")
+        lines.append(f"| {r['name']} | {r['email']} | {r['state']} | {'Yes' if r['mfa'] else 'No'} | {r['created']} | {r['last_login']} | {r['groups']} |")
     lines.append(f"\n_Total: {len(df)} users_")
     return "\n".join(lines)
 
