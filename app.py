@@ -1,5 +1,6 @@
 import sys
 import json
+import re
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 
 from db.connection import get_connection
 from tools.iam import get_users_df, get_groups_df, add_user_to_group, remove_user_from_group
+from tools.compute import get_vms_df, create_vm, start_vm, stop_vm, delete_vm
 
 load_dotenv(Path(__file__).parent / '.env')
 
@@ -44,6 +46,10 @@ def get_schema_context() -> str:
             cols = ", ".join(f"{r[0]} ({r[1]})" for r in cur.fetchall())
             lines.append(f"  {table}: {cols}")
     lines += [
+        "\nUseful Oracle system views (not in user_tables but always available):",
+        "  user_mining_models: model_name, algorithm, mining_function, build_duration — lists trained ML models",
+        "  all_mining_models: same but includes models from other schemas (e.g. CARDIO_MODEL_USER)",
+        "  user_tab_columns: column metadata",
         "\nOracle SQL rules — always follow these:",
         "- Use FETCH FIRST n ROWS ONLY, never LIMIT",
         "- Use TO_CHAR(date_col, 'YYYY-MM') for month grouping",
@@ -66,11 +72,18 @@ Classify the user message into exactly one of:
 {"intent": "iam_users"}                                                  -- wants to list or see IAM users
 {"intent": "iam_groups"}                                                 -- wants to list or see IAM groups
 {"intent": "iam_add", "user": "<username>", "group": "<groupname>"}     -- add a user to a group
-{"intent": "iam_remove", "user": "<username>", "group": "<groupname>"}  -- remove a user from a group"""
+{"intent": "iam_remove", "user": "<username>", "group": "<groupname>"}  -- remove a user from a group
+{"intent": "vm_list"}                                                            -- list/show VMs or instances
+{"intent": "vm_create", "name": "<display_name>", "ocpus": <n>, "memory_gb": <n>} -- create a free tier VM (default: A1.Flex, 2 OCPU, 12GB)
+{"intent": "vm_start", "name": "<vm_name>"}                                      -- start/activate a stopped VM
+{"intent": "vm_stop", "name": "<vm_name>"}                                       -- stop/deactivate a running VM
+{"intent": "vm_delete", "name": "<vm_name>"}                                     -- delete/terminate a VM"""
 
 
 _IAM_KEYWORDS = ("iam", "user", "users", "group", "groups", "member", "members",
-                  "add to", "remove from", "access", "permission", "role")
+                  "add to", "remove from", "access", "permission", "role",
+                  "vm", "instance", "virtual machine", "compute", "server",
+                  "start", "stop", "delete", "terminate", "create vm", "launch")
 
 def classify_intent(question: str) -> dict:
     q_lower = question.lower()
@@ -112,7 +125,14 @@ def generate_sql(question: str, schema_context: str) -> str:
     return msg.content[0].text.strip()
 
 
+_FORBIDDEN_SQL = re.compile(
+    r'^\s*(DROP|DELETE|TRUNCATE|INSERT|UPDATE|CREATE|ALTER|GRANT|REVOKE|MERGE)\b',
+    re.IGNORECASE,
+)
+
 def run_sql(sql: str) -> pd.DataFrame:
+    if _FORBIDDEN_SQL.search(sql):
+        raise ValueError("Only SELECT queries are allowed.")
     conn = get_connection()
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -152,6 +172,19 @@ with st.sidebar:
         if st.button(ex, use_container_width=True, key=f"iam_{ex[:20]}"):
             st.session_state["question"] = ex
 
+    st.divider()
+    st.header("🖥️ VM examples")
+    vm_examples = [
+        "Show my VMs",
+        "Create a VM called test-vm",
+        "Start test-vm",
+        "Stop test-vm",
+        "Delete test-vm",
+    ]
+    for ex in vm_examples:
+        if st.button(ex, use_container_width=True, key=f"vm_{ex[:20]}"):
+            st.session_state["question"] = ex
+
 
 # ── Main input ────────────────────────────────────────────────────────────────
 question = st.text_input(
@@ -161,6 +194,44 @@ question = st.text_input(
 )
 
 run = st.button("Run", type="primary")
+
+# ── Pending compute action confirmation ───────────────────────────────────────
+if "pending_compute" in st.session_state:
+    p    = st.session_state["pending_compute"]
+    action = p["action"]
+    name   = p.get("name", "")
+    if action == "vm_create":
+        msg = f"Create VM **{name}** ({p.get('shape','VM.Standard.A1.Flex')} · {p.get('ocpus',2)} OCPU · {p.get('memory_gb',12)}GB)"
+    elif action == "vm_start":
+        msg = f"Start VM **{name}**?"
+    elif action == "vm_stop":
+        msg = f"Stop VM **{name}**?"
+    elif action == "vm_delete":
+        msg = f"⚠️ Permanently delete VM **{name}**?"
+    else:
+        msg = f"{action} **{name}**?"
+    st.warning(msg)
+    c1, c2, _ = st.columns([1, 1, 5])
+    with c1:
+        if st.button("✓ Confirm", type="primary", key="confirm_compute"):
+            with st.spinner("Applying..."):
+                if action == "vm_create":
+                    result = create_vm(name, p.get("shape", "VM.Standard.A1.Flex"),
+                                       p.get("ocpus", 2), p.get("memory_gb", 12))
+                elif action == "vm_start":
+                    result = start_vm(name)
+                elif action == "vm_stop":
+                    result = stop_vm(name)
+                elif action == "vm_delete":
+                    result = delete_vm(name)
+                else:
+                    result = "Unknown action"
+            st.success(result)
+            del st.session_state["pending_compute"]
+    with c2:
+        if st.button("✗ Cancel", key="cancel_compute"):
+            del st.session_state["pending_compute"]
+            st.rerun()
 
 # ── Pending IAM action confirmation ──────────────────────────────────────────
 if "pending_iam" in st.session_state:
@@ -216,6 +287,28 @@ if run and question:
             "action": kind,
             "user":   intent.get("user", ""),
             "group":  intent.get("group", ""),
+        }
+        st.rerun()
+
+    # ── VM: list ─────────────────────────────────────────────────────────────
+    elif kind == "vm_list":
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        with st.spinner("Fetching VMs..."):
+            df = get_vms_df()
+        st.subheader(f"Compute Instances ({len(df)})")
+        st.dataframe(df.drop(columns=['id']), use_container_width=True)
+
+    # ── VM: create / start / stop / delete (confirmation required) ────────────
+    elif kind in ("vm_create", "vm_start", "vm_stop", "vm_delete"):
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        st.session_state["pending_compute"] = {
+            "action":    kind,
+            "name":      intent.get("name", "olist-mcp-vm"),
+            "shape":     intent.get("shape", "VM.Standard.A1.Flex"),
+            "ocpus":     intent.get("ocpus", 2),
+            "memory_gb": intent.get("memory_gb", 12),
         }
         st.rerun()
 
