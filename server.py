@@ -12,6 +12,7 @@ from mcp.server.stdio import stdio_server
 from tools.schema import list_tables, describe_table
 from tools.query import run_query
 from tools.plot import plot_query
+from tools.iam import list_iam_users, list_iam_groups
 
 app = Server("olist")
 
@@ -63,6 +64,22 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="list_iam_users",
+            description=(
+                "List all OCI IAM users in the tenancy with their email, state, MFA status, "
+                "creation date, and which IAM groups they belong to."
+            ),
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        ),
+        types.Tool(
+            name="list_iam_groups",
+            description=(
+                "List all OCI IAM groups in the tenancy with their description, state, "
+                "creation date, and current members."
+            ),
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        ),
+        types.Tool(
             name="plot_query",
             description=(
                 "Execute an Oracle SQL query and render results as a Plotly chart saved to an HTML file. "
@@ -90,7 +107,11 @@ async def handle_list_tools() -> list[types.Tool]:
 
 @app.call_tool()
 async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-    if name == "list_tables":
+    if name == "list_iam_users":
+        result = list_iam_users()
+    elif name == "list_iam_groups":
+        result = list_iam_groups()
+    elif name == "list_tables":
         result = list_tables()
     elif name == "describe_table":
         result = describe_table(arguments["table_name"])
