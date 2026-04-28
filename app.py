@@ -1,4 +1,5 @@
 import sys
+import json
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -10,20 +11,21 @@ import anthropic
 from dotenv import load_dotenv
 
 from db.connection import get_connection
+from tools.iam import get_users_df, get_groups_df, add_user_to_group, remove_user_from_group
 
 load_dotenv(Path(__file__).parent / '.env')
 
-# ── Page config ──────────────────────────────────────────────────────────────
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Olist Analytics",
-    page_icon="📦",
+    page_title="OCI Playground",
+    page_icon="🔮",
     layout="wide",
 )
 
-st.title("📦 Olist Analytics")
-st.caption("Ask questions about Brazilian e-commerce data — powered by Claude + Oracle ADB")
+st.title("🔮 OCI Playground")
+st.caption("Ask questions about Olist data or your OCI IAM — powered by Claude + Oracle ADB")
 
-# ── Schema context (cached at startup) ───────────────────────────────────────
+# ── Schema context (cached at startup) ────────────────────────────────────────
 @st.cache_resource
 def get_schema_context() -> str:
     conn = get_connection()
@@ -53,19 +55,63 @@ def get_schema_context() -> str:
     return "\n".join(lines)
 
 
-# ── SQL generation via Claude API ─────────────────────────────────────────────
+# ── Claude helpers ────────────────────────────────────────────────────────────
+def _claude_client():
+    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+
+INTENT_SYSTEM = """You are an intent classifier. Return JSON only, no explanation, no markdown.
+Classify the user message into exactly one of:
+{"intent": "sql"}                                                        -- data/analytics question about Olist e-commerce database
+{"intent": "iam_users"}                                                  -- wants to list or see IAM users
+{"intent": "iam_groups"}                                                 -- wants to list or see IAM groups
+{"intent": "iam_add", "user": "<username>", "group": "<groupname>"}     -- add a user to a group
+{"intent": "iam_remove", "user": "<username>", "group": "<groupname>"}  -- remove a user from a group"""
+
+
+_IAM_KEYWORDS = ("iam", "user", "users", "group", "groups", "member", "members",
+                  "add to", "remove from", "access", "permission", "role")
+
+def classify_intent(question: str) -> dict:
+    q_lower = question.lower()
+
+    # Fast keyword pre-filter — avoids API call for obvious IAM questions
+    is_iam_like = any(kw in q_lower for kw in _IAM_KEYWORDS)
+    if not is_iam_like:
+        return {"intent": "sql"}
+
+    try:
+        msg = _claude_client().messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            system=INTENT_SYSTEM,
+            messages=[{"role": "user", "content": question}],
+        )
+        raw = msg.content[0].text.strip()
+        # Strip accidental markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("```")[1].strip()
+            if raw.startswith("json"):
+                raw = raw[4:].strip()
+        result = json.loads(raw)
+        # Compound question → list of intents; take the first one
+        if isinstance(result, list):
+            return result[0] if result else {"intent": "sql"}
+        return result
+    except Exception:
+        return {"intent": "sql"}
+
+
 def generate_sql(question: str, schema_context: str) -> str:
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    message = client.messages.create(
+    msg = _claude_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=1024,
         system=schema_context,
         messages=[{"role": "user", "content": question}],
     )
-    return message.content[0].text.strip()
+    return msg.content[0].text.strip()
 
 
-# ── Query execution ───────────────────────────────────────────────────────────
 def run_sql(sql: str) -> pd.DataFrame:
     conn = get_connection()
     with conn.cursor() as cur:
@@ -79,87 +125,152 @@ def run_sql(sql: str) -> pd.DataFrame:
 with st.sidebar:
     st.header("⚙️ Settings")
     chart_type = st.selectbox("Chart type", ["bar", "line", "scatter", "pie"])
-    show_sql = st.toggle("Show generated SQL", value=True)
-    max_rows = st.slider("Max rows in table", 10, 500, 50)
+    show_sql   = st.toggle("Show generated SQL", value=True)
+    max_rows   = st.slider("Max rows in table", 10, 500, 50)
+
     st.divider()
-    st.header("💡 Example questions")
-    examples = [
+    st.header("💡 Data examples")
+    sql_examples = [
         "What are the top 10 product categories by revenue?",
         "Show monthly order count trend in 2018",
         "Which states have the most customers?",
         "What is the average review score by product category?",
-        "Show the distribution of payment types",
     ]
-    for ex in examples:
-        if st.button(ex, use_container_width=True):
+    for ex in sql_examples:
+        if st.button(ex, use_container_width=True, key=f"sql_{ex[:20]}"):
             st.session_state["question"] = ex
+
+    st.divider()
+    st.header("🔐 IAM examples")
+    iam_examples = [
+        "Show me all IAM users",
+        "List all groups",
+        "Add testbiuser to ds_group",
+        "Remove testbiuser from ds_group",
+    ]
+    for ex in iam_examples:
+        if st.button(ex, use_container_width=True, key=f"iam_{ex[:20]}"):
+            st.session_state["question"] = ex
+
 
 # ── Main input ────────────────────────────────────────────────────────────────
 question = st.text_input(
-    "Ask a question about the Olist data",
-    placeholder="e.g. What are the top 10 product categories by revenue?",
+    "Ask a question",
+    placeholder="e.g. Top 10 categories by revenue  —or—  Show me all IAM users",
     key="question",
 )
 
-run = st.button("Run", type="primary", use_container_width=False)
+run = st.button("Run", type="primary")
+
+# ── Pending IAM action confirmation ──────────────────────────────────────────
+if "pending_iam" in st.session_state:
+    p    = st.session_state["pending_iam"]
+    verb = "Add" if p["action"] == "iam_add" else "Remove"
+    prep = "to" if p["action"] == "iam_add" else "from"
+    st.warning(f"**Confirm:** {verb} **{p['user']}** {prep} group **{p['group']}**?")
+    c1, c2, _ = st.columns([1, 1, 5])
+    with c1:
+        if st.button("✓ Confirm", type="primary"):
+            with st.spinner("Applying change..."):
+                if p["action"] == "iam_add":
+                    msg = add_user_to_group(p["user"], p["group"])
+                else:
+                    msg = remove_user_from_group(p["user"], p["group"])
+            st.success(msg)
+            del st.session_state["pending_iam"]
+    with c2:
+        if st.button("✗ Cancel"):
+            del st.session_state["pending_iam"]
+            st.rerun()
 
 # ── Execution ─────────────────────────────────────────────────────────────────
 if run and question:
-    schema_context = get_schema_context()
+    with st.spinner("Classifying intent..."):
+        intent = classify_intent(question)
 
-    with st.spinner("Generating SQL..."):
-        try:
-            sql = generate_sql(question, schema_context)
-        except Exception as e:
-            st.error(f"Claude API error: {e}")
-            st.stop()
+    kind = intent.get("intent", "sql")
 
-    with st.spinner("Querying Oracle ADB..."):
-        try:
-            df = run_sql(sql)
-        except Exception as e:
-            st.error(f"SQL error: {e}")
-            st.stop()
+    # ── IAM: list users ───────────────────────────────────────────────────────
+    if kind == "iam_users":
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        with st.spinner("Fetching IAM users..."):
+            df = get_users_df()
+        st.subheader(f"IAM Users ({len(df)})")
+        st.dataframe(df, use_container_width=True)
 
-    if df.empty:
-        st.warning("Query returned no results.")
-        st.stop()
+    # ── IAM: list groups ──────────────────────────────────────────────────────
+    elif kind == "iam_groups":
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        with st.spinner("Fetching IAM groups..."):
+            df = get_groups_df()
+        st.subheader(f"IAM Groups ({len(df)})")
+        st.dataframe(df, use_container_width=True)
 
-    # Store results in session state so sidebar changes don't wipe them
-    st.session_state["df"] = df
-    st.session_state["sql"] = sql
+    # ── IAM: add / remove (store pending for confirmation) ────────────────────
+    elif kind in ("iam_add", "iam_remove"):
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        st.session_state["pending_iam"] = {
+            "action": kind,
+            "user":   intent.get("user", ""),
+            "group":  intent.get("group", ""),
+        }
+        st.rerun()
 
-# ── Display results (persists across sidebar interactions) ────────────────────
-if "df" in st.session_state:
-    df = st.session_state["df"]
+    # ── SQL / data query ──────────────────────────────────────────────────────
+    else:
+        schema_context = get_schema_context()
+        with st.spinner("Generating SQL..."):
+            try:
+                sql = generate_sql(question, schema_context)
+            except Exception as e:
+                st.error(f"Claude API error: {e}")
+                st.stop()
+
+        with st.spinner("Querying Oracle ADB..."):
+            try:
+                df = run_sql(sql)
+            except Exception as e:
+                st.error(f"SQL error: {e}")
+                st.stop()
+
+        st.session_state["df"]  = df
+        st.session_state["sql"] = sql
+
+# ── Display SQL results (persists across sidebar interactions) ────────────────
+if "df" in st.session_state and "sql" in st.session_state:
+    df  = st.session_state["df"]
     sql = st.session_state["sql"]
 
     if show_sql:
         with st.expander("Generated SQL", expanded=True):
             st.code(sql, language="sql")
 
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        st.subheader("Results")
-        st.dataframe(df.head(max_rows), use_container_width=True)
-        st.caption(f"{len(df):,} rows fetched · showing {min(max_rows, len(df)):,}")
-
-    with col2:
-        st.subheader("Chart")
-        if len(df.columns) >= 2:
-            try:
-                x_col, y_col = df.columns[0], df.columns[1]
-                if chart_type == "bar":
-                    fig = px.bar(df.head(max_rows), x=x_col, y=y_col)
-                elif chart_type == "line":
-                    fig = px.line(df.head(max_rows), x=x_col, y=y_col)
-                elif chart_type == "scatter":
-                    fig = px.scatter(df.head(max_rows), x=x_col, y=y_col)
-                elif chart_type == "pie":
-                    fig = px.pie(df.head(max_rows), names=x_col, values=y_col)
-                st.plotly_chart(fig, use_container_width=True)
-            except Exception as e:
-                st.warning(f"Could not render chart: {e}")
-        else:
-            st.info("Need at least 2 columns to plot.")
+    if df.empty:
+        st.warning("Query returned no results.")
+    else:
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.subheader("Results")
+            st.dataframe(df.head(max_rows), use_container_width=True)
+            st.caption(f"{len(df):,} rows fetched · showing {min(max_rows, len(df)):,}")
+        with col2:
+            st.subheader("Chart")
+            if len(df.columns) >= 2:
+                try:
+                    x_col, y_col = df.columns[0], df.columns[1]
+                    if chart_type == "bar":
+                        fig = px.bar(df.head(max_rows), x=x_col, y=y_col)
+                    elif chart_type == "line":
+                        fig = px.line(df.head(max_rows), x=x_col, y=y_col)
+                    elif chart_type == "scatter":
+                        fig = px.scatter(df.head(max_rows), x=x_col, y=y_col)
+                    elif chart_type == "pie":
+                        fig = px.pie(df.head(max_rows), names=x_col, values=y_col)
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.warning(f"Could not render chart: {e}")
+            else:
+                st.info("Need at least 2 columns to plot.")
