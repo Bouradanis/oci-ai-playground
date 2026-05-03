@@ -216,3 +216,4 @@ Wallet*.zip
 *_ds.csv
 *_ds.html
 *.csv
+/output/
