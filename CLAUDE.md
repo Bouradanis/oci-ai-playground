@@ -1,15 +1,25 @@
-# Olist MCP Server — Project Brief
+# OCI AI Playground — Project Brief
 
 ## What this project is
 
-A learning project to build a local MCP (Model Context Protocol) server in Python,
-connected to an Oracle Autonomous Database (ADB) on OCI Free Tier. The dataset is
-the Brazilian E-Commerce Public Dataset by Olist (Kaggle), loaded into Oracle ADB.
+A learning project exploring AI and data capabilities on OCI Free Tier, built around
+an Oracle Autonomous Database (ADB). It has grown across several phases:
 
-The MCP server exposes tools that let Claude (via Claude Code) answer natural language
-questions about the Olist data — querying, explaining schema, and generating plots.
+- **Phase 1 (complete):** Local MCP server (stdio) for the Olist Brazilian e-commerce
+  dataset — natural language SQL queries and Plotly charts via Claude Code
+- **Phase 2 (complete):** Streamlit chatbot front-end calling the MCP tools over HTTP;
+  OCI IAM user management tools (list users, add/remove from groups with approval flow);
+  OCI Compute VM provisioning tool (free tier)
+- **Phase 3 (complete):** Synthea synthetic insurance data (48M+ rows across 13 tables)
+  ingested into OML_USER schema via PySpark + pandas; CARDIOTOCOGRAPHY table with an
+  XGBoost model trained and stored via DBMS_DATA_MINING in CARDIO_MODEL_USER schema
+- **Phase 4 (active):** Oracle Graph Studio fraud detection — building a property graph
+  over the Synthea insurance data (providers, patients, payers, encounters, claims) to
+  detect network fraud patterns: provider rings, phantom billing, upcoding, patient churning
 
-**Phase 1 (local stdio) is complete and working.**
+**GRAPHUSER schema** has been created with Graph Studio access and SELECT grants on all
+OML_USER tables (Olist + Cardiotocography + Synthea). Credentials are in OCI Vault
+under `GRAPHUSER_SECRET_OCID`.
 
 ---
 
@@ -185,8 +195,63 @@ Credentials are loaded from `.env` inside `db/connection.py` — no secrets in `
 
 ---
 
-## Phase 2 notes (not building yet)
+---
 
-- Switch transport from stdio to HTTP/SSE using FastAPI + `mcp.server.fastapi`
-- Add a Streamlit front-end that calls the MCP tools via HTTP
-- Consider deploying the FastAPI server as an OCI Compute instance or Oracle Function
+## Synthea insurance schema (OML_USER)
+
+13 tables, 48M+ total rows. Loaded via `oci_playground/synthea_ingest.ipynb` (PySpark)
+and `load_claims.py` / `load_remaining.py` (pandas + oracledb for large tables).
+
+| Table | Rows | Notes |
+|---|---|---|
+| syn_patients | 22,920 | Master patient list |
+| syn_encounters | 1,314,807 | Links patients → providers → organizations |
+| syn_payer_transitions | 848,238 | Insurance coverage history |
+| syn_conditions | 820,605 | Diagnoses |
+| syn_medications | 1,102,706 | Prescriptions |
+| syn_procedures | 3,649,054 | Procedures performed |
+| syn_observations | 16,937,728 | Lab results, vitals |
+| syn_claims | 2,417,513 | Billing claims (PK: id) |
+| syn_claims_transactions | 21,345,339 | Financial transactions per claim |
+| syn_immunizations | 331,463 | Vaccine records |
+| syn_allergies | 21,215 | Allergy records |
+| syn_careplans | 75,408 | Care plan records |
+| syn_devices | 128,838 | Medical device records |
+
+**Key fraud-detection relationships:**
+- `syn_encounters.provider` → provider entity
+- `syn_encounters.organization` → facility entity
+- `syn_encounters` links patients ↔ providers ↔ payers
+- `syn_claims` links encounters → billing
+- `syn_claims_transactions` shows payment flows
+
+**Ingest pattern for large tables (pandas + oracledb):**
+```python
+# Always declare ALL column dtypes explicitly — prevents pandas mixed-type inference
+dtype_map = {col: (float if col in num_cols else str) for col in csv_cols}
+chunk = chunk.astype(object).where(pd.notnull(chunk), None)  # NaN → None for Oracle NULL
+rows  = list(chunk.itertuples(index=False, name=None))       # faster than iterrows()
+cur.executemany(sql, rows)
+```
+
+---
+
+## Graph Studio (GRAPHUSER schema)
+
+GRAPHUSER has:
+- SELECT grants on all OML_USER tables (Olist + Cardiotocography + Synthea)
+- Graph Studio access via `GRAPH_DEVELOPER` role + `GRAPH$PROXY_USER`
+- A sample graph `SH_PGVIEW_GRAPH` built from Oracle Sales History views (tutorial)
+- Next: build a Synthea fraud-detection property graph
+
+Connect: use `GRAPHUSER_SECRET_OCID` from `.env`.
+
+---
+
+## Phase 4 notes (active — Graph Fraud Detection)
+
+Goal: detect insurance fraud using Oracle Graph Studio PGQL queries and graph algorithms.
+
+**Planned graph vertices:** patients, providers, organizations, payers
+**Planned graph edges:** encounters (patient→provider), claims (encounter→billing), payer transitions
+**Algorithms to run:** PageRank (influential providers), Louvain (ring detection), shared-neighbor counts
