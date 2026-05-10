@@ -1,4 +1,5 @@
 {
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "olist"
   ],
@@ -15,5 +16,9 @@
       }
     ]
   },
-  "enableAllProjectMcpServers": true
+  "permissions": {
+    "allow": [
+      "Bash(/home/abourantanis/miniconda3/envs/olist_mcp/bin/python *)"
+    ]
+  }
 }
