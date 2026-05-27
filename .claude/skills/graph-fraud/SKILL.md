@@ -1,3 +1,9 @@
+---
+name: graph-fraud
+description: Guide for Oracle Graph Studio fraud detection on Synthea insurance data — building the synthea_fraud_graph property graph in GRAPHUSER, running PGQL pattern queries (provider rings, upcoding, patient churning), and executing graph algorithms (PageRank, Louvain, WCC) via opg4py.
+disable-model-invocation: true
+---
+
 # Oracle Graph Studio — Synthea Fraud Detection
 
 You are helping build and query an Oracle property graph over the Synthea synthetic
