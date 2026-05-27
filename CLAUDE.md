@@ -16,6 +16,9 @@ an Oracle Autonomous Database (ADB). It has grown across several phases:
 - **Phase 4 (active):** Oracle Graph Studio fraud detection — building a property graph
   over the Synthea insurance data (providers, patients, payers, encounters, claims) to
   detect network fraud patterns: provider rings, phantom billing, upcoding, patient churning
+- **Phase 5 (planned):** Oracle APEX front-end replacing Streamlit — chatbot UI in APEX
+  backed by a FastAPI service deployed on the free-tier OCI Compute VM; APEX workspace
+  points to OML_USER schema; Olist analytics dashboard (KPI cards, charts, IR reports)
 
 **GRAPHUSER schema** has been created with Graph Studio access and SELECT grants on all
 OML_USER tables (Olist + Cardiotocography + Synthea). Credentials are in OCI Vault
@@ -255,3 +258,59 @@ Goal: detect insurance fraud using Oracle Graph Studio PGQL queries and graph al
 **Planned graph vertices:** patients, providers, organizations, payers
 **Planned graph edges:** encounters (patient→provider), claims (encounter→billing), payer transitions
 **Algorithms to run:** PageRank (influential providers), Louvain (ring detection), shared-neighbor counts
+
+---
+
+## Phase 5 notes (planned — Oracle APEX + FastAPI chatbot deployment)
+
+Goal: replace the Streamlit front-end with an Oracle APEX application, keeping the existing
+Python chatbot logic intact by wrapping it in a FastAPI service.
+
+### Architecture
+
+```
+Browser → APEX workspace (OML_USER schema)
+               │
+               │  POST /chat  {"question": "..."}
+               ▼
+          FastAPI service  (OCI free-tier Compute VM, same VM used in Phase 2)
+               ├── intent classify  → Claude Haiku  (same logic as app.py)
+               ├── sql path         → Claude Sonnet generates SQL → runs on ADB → returns JSON
+               ├── iam path         → OCI Python SDK
+               └── vm path          → OCI Python SDK
+               │
+               │  {"type": "table"|"iam"|"vm"|"message", "columns": [...], "rows": [...]}
+               ▼
+          APEX page (dynamic action calls apex_web_service, renders result in report region)
+```
+
+### File structure (to be created)
+
+```
+apex_api/
+├── main.py          ← FastAPI app, single POST /chat endpoint
+├── chat.py          ← intent classify + dispatch logic (ported from app.py)
+├── requirements.txt
+└── deploy.sh        ← systemd service setup on OCI VM
+
+apex/
+└── f100.sql         ← exported APEX app (version-controlled after each session)
+```
+
+### APEX app pages
+
+| Page | Type | Content |
+|---|---|---|
+| 1 — Dashboard | Cards + Charts | KPI tiles, revenue by category, orders over time |
+| 2 — AI Chat | Custom | Text input → REST call → display table/chart/message |
+| 3 — Orders | Interactive Report | Full Olist orders with drilldown |
+| 4 — Sellers | Interactive Grid | Leaderboard with faceted search |
+
+### Key decisions
+
+- FastAPI wraps `app.py` logic almost unchanged — avoids rewriting the chatbot
+- APEX workspace: `OLIST_WS`, schema: `OML_USER`
+- FastAPI runs on the same free-tier VM already provisioned (ARM A1.Flex)
+- Secrets (.env) stay on the VM — never passed to APEX
+- APEX calls FastAPI via `apex_web_service.make_rest_request()` in a PL/SQL process
+- Session state protection: all URL-passed items must be set to Restricted from day one
