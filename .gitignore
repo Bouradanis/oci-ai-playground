@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 
+# Playwright MCP auto-generated snapshots/screenshots
+.playwright-mcp/
+
 #OCI
 .oci/
 Wallet*/

@@ -5,7 +5,7 @@ import pandas as pd
 # ── Free tier hard limits ─────────────────────────────────────────────────────
 ALLOWED_SHAPES = {"VM.Standard.A1.Flex", "VM.Standard.E2.1.Micro"}
 SHAPE_LIMITS = {
-    "VM.Standard.A1.Flex":    {"max_ocpus": 4,  "max_memory_gb": 24},
+    "VM.Standard.A1.Flex":    {"max_ocpus": 2,  "max_memory_gb": 12},
     "VM.Standard.E2.1.Micro": {"max_ocpus": 1,  "max_memory_gb": 1},
 }
 
