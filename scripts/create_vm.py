@@ -12,10 +12,10 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / '.env')
 
 # ── Config ────────────────────────────────────────────────────────────────────
-COMPARTMENT_ID = "ocid1.compartment.oc1..aaaaaaaaibazzyu4zv6qnuehcpqzby5jgbucbivhrjhyqx6vmx7fqxiy37uq"
-SUBNET_ID      = "ocid1.subnet.oc1.eu-frankfurt-1.aaaaaaaadozudkvgvwkshcotu42syiamwiw5w4prd6it5dbrs3ftlu6scooa"
-IMAGE_ID       = "ocid1.image.oc1.eu-frankfurt-1.aaaaaaaaimlbvu2dnd46l4gmgpcykuuqm6v52u67tqki7hxmptppe4wdhwea"
-SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOhcpXmXoCtt7LnzscZZjPhBn5UCKdH1ZSktVIbQLvo0 olist-vm"
+COMPARTMENT_ID = os.environ["COMPARTMENT_OCID"]
+SUBNET_ID      = os.environ["SUBNET_OCID"]
+IMAGE_ID       = os.environ["IMAGE_OCID"]
+SSH_PUBLIC_KEY = os.environ["SSH_PUBLIC_KEY"]
 
 AVAILABILITY_DOMAINS = [
     "lXgJ:EU-FRANKFURT-1-AD-1",
