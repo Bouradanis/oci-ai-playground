@@ -34,6 +34,7 @@ under `GRAPHUSER_SECRET_OCID`.
 | DB driver | `oracledb` (thin mode, no Oracle Client needed) |
 | OCI secrets | `oci` SDK — fetch wallet + credentials from OCI Vault |
 | Plotting | `plotly` — returns HTML figures saved to temp files |
+| Auth (Streamlit app) | OCI Identity Domain as OIDC provider — real OCI login, role from IAM group |
 | Python env | conda (environment name: `olist_mcp`) |
 | IDE | PyCharm with Claude Code plugin |
 
@@ -81,6 +82,8 @@ oci-ai-playground/
 ├── .mcp.json                  ← MCP server definition for Claude Code
 │
 ├── server.py                  ← MCP server entrypoint (stdio)
+├── app.py                     ← Streamlit chatbot front-end (OAuth-gated, see below)
+├── auth.py                    ← OCI Identity Domain OAuth login + role resolution from IAM groups
 ├── db/
 │   ├── __init__.py
 │   └── connection.py          ← get_connection() — only place that imports oracledb
@@ -248,6 +251,61 @@ GRAPHUSER has:
 - Next: build a Synthea fraud-detection property graph
 
 Connect: use `GRAPHUSER_SECRET_OCID` from `.env`.
+
+---
+
+## Streamlit app: OCI-authenticated RBAC login
+
+The Streamlit app (`app.py`) requires logging in with a real OCI Identity Domain
+account before any UI renders. Role (and therefore what the app allows) comes
+from IAM group membership, not a separate app-level login system.
+
+**Groups → role:**
+- `olist_admins` → `admin` — full sidebar (Data + IAM + VM examples), can run IAM/VM actions
+- `olist_users`  → `user` — Data examples only; IAM/VM intents are rejected
+- any other/no group → blocked entirely with an error, no role assigned
+
+**Flow (`auth.py`):**
+1. App shows a "Log in with OCI →" link pointing at the Identity Domain's
+   `/oauth2/v1/authorize` endpoint (Authorization Code grant, `scope=openid groups`).
+2. User authenticates on OCI's own hosted login page — the app never sees a
+   raw password.
+3. OCI redirects back to `http://localhost:8501/?code=...&state=...`; the app
+   exchanges the code for tokens at `/oauth2/v1/token`, then calls
+   `/oauth2/v1/userinfo` with the access token to get `groups` claims directly
+   (group objects come back as `{"id", "name", "$ref"}` — matched on `"name"`).
+4. `state` is a self-verifying HMAC-signed timestamp (`auth.new_state()` /
+   `auth.verify_state()`), not something stored in `st.session_state` —
+   Streamlit's session doesn't reliably survive the full-page navigation
+   away to OCI's login domain and back, so CSRF protection can't depend on
+   server-side memory across that redirect.
+5. Role gating happens twice: sidebar sections are hidden per role (UX), and
+   — more importantly — `app.py`'s execution block re-checks the role before
+   running any `iam_*`/`vm_*` intent, regardless of whether it was triggered
+   by a sidebar button or typed directly into the free-text question box.
+
+**Setup dependencies (Console, one-time, already done for this tenancy):**
+- A Confidential Application (`olist-streamlit-app`) registered in the OCI
+  Identity Domain, grant type Authorization Code + Refresh Token, redirect
+  URL `http://localhost:8501` (non-HTTPS allowed explicitly for local dev),
+  activated.
+- `.env` additions: `OCI_OAUTH_CLIENT_ID`, `OCI_OAUTH_CLIENT_SECRET`,
+  `OCI_DOMAIN_URL`, `OCI_OAUTH_REDIRECT_URI`.
+
+**Known limitation:** the in-app "Log out" only clears `st.session_state` —
+it doesn't end the actual OCI browser SSO session, so logging back in
+silently re-authenticates as the same user. To test as a different account,
+use a separate browser/incognito window. A real fix would redirect to the
+Identity Domain's `/oauth2/v1/userlogout` with an `id_token_hint`.
+
+**VM provisioning free-tier guard:** `tools/compute.py`'s `SHAPE_LIMITS` caps
+`VM.Standard.A1.Flex` at 2 OCPU / 12 GB (Oracle lowered the Always Free A1
+ceiling from the old 4 OCPU / 24 GB). `COMPARTMENT_ID`, `SUBNET_ID`,
+`IMAGE_ID`, and `SSH_PUBLIC_KEY` in both `scripts/create_vm.py` and
+`tools/compute.py` are read from `.env` (`COMPARTMENT_OCID`, `SUBNET_OCID`,
+`IMAGE_OCID`, `SSH_PUBLIC_KEY`) rather than hardcoded — they were previously
+committed as literal strings in git history on the public GitHub repo before
+being moved to env vars.
 
 ---
 

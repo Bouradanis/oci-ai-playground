@@ -11,6 +11,7 @@ import plotly.express as px
 import anthropic
 from dotenv import load_dotenv
 
+import auth
 from db.connection import get_connection
 from tools.iam import get_users_df, get_groups_df, add_user_to_group, remove_user_from_group
 from tools.compute import get_vms_df, create_vm, start_vm, stop_vm, delete_vm
@@ -23,6 +24,39 @@ st.set_page_config(
     page_icon="🔮",
     layout="wide",
 )
+
+# ── Auth gate: log in with real OCI credentials, role from IAM group ──────────
+if "identity" not in st.session_state:
+    params = st.query_params
+    if "code" in params:
+        if not auth.verify_state(params.get("state", "")):
+            st.error("Login failed: state invalid or expired. Please try logging in again.")
+            st.query_params.clear()
+            st.stop()
+        try:
+            st.session_state["identity"] = auth.login(params["code"])
+        except Exception as e:
+            st.error(f"Login failed: {e}")
+            st.query_params.clear()
+            st.stop()
+        st.query_params.clear()
+        st.rerun()
+    else:
+        state = auth.new_state()
+        st.title("🔮 OCI Playground")
+        st.caption("Ask questions about Olist data or your OCI IAM — powered by Claude + Oracle ADB")
+        st.markdown(f"[**Log in with OCI →**]({auth.build_authorize_url(state)})")
+        st.stop()
+
+identity = st.session_state["identity"]
+if identity["role"] is None:
+    st.error(f"**{identity['username']}** isn't a member of `olist_admins` or `olist_users` — "
+             f"ask an admin to add you to one of those groups.")
+    st.session_state.pop("identity", None)
+    st.markdown(f"[**Log out →**]({auth.build_logout_url(identity.get('id_token'))})")
+    st.stop()
+
+is_admin = identity["role"] == "admin"
 
 st.title("🔮 OCI Playground")
 st.caption("Ask questions about Olist data or your OCI IAM — powered by Claude + Oracle ADB")
@@ -143,6 +177,10 @@ def run_sql(sql: str) -> pd.DataFrame:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    st.caption(f"Logged in as **{identity['username']}** ({identity['role']})")
+    st.markdown(f"[Log out →]({auth.build_logout_url(identity.get('id_token'))})")
+    st.divider()
+
     st.header("⚙️ Settings")
     chart_type = st.selectbox("Chart type", ["bar", "line", "scatter", "pie"])
     show_sql   = st.toggle("Show generated SQL", value=True)
@@ -160,30 +198,31 @@ with st.sidebar:
         if st.button(ex, use_container_width=True, key=f"sql_{ex[:20]}"):
             st.session_state["question"] = ex
 
-    st.divider()
-    st.header("🔐 IAM examples")
-    iam_examples = [
-        "Show me all IAM users",
-        "List all groups",
-        "Add testbiuser to ds_group",
-        "Remove testbiuser from ds_group",
-    ]
-    for ex in iam_examples:
-        if st.button(ex, use_container_width=True, key=f"iam_{ex[:20]}"):
-            st.session_state["question"] = ex
+    if is_admin:
+        st.divider()
+        st.header("🔐 IAM examples")
+        iam_examples = [
+            "Show me all IAM users",
+            "List all groups",
+            "Add testbiuser to ds_group",
+            "Remove testbiuser from ds_group",
+        ]
+        for ex in iam_examples:
+            if st.button(ex, use_container_width=True, key=f"iam_{ex[:20]}"):
+                st.session_state["question"] = ex
 
-    st.divider()
-    st.header("🖥️ VM examples")
-    vm_examples = [
-        "Show my VMs",
-        "Create a VM called test-vm",
-        "Start test-vm",
-        "Stop test-vm",
-        "Delete test-vm",
-    ]
-    for ex in vm_examples:
-        if st.button(ex, use_container_width=True, key=f"vm_{ex[:20]}"):
-            st.session_state["question"] = ex
+        st.divider()
+        st.header("🖥️ VM examples")
+        vm_examples = [
+            "Show my VMs",
+            "Create a VM called test-vm",
+            "Start test-vm",
+            "Stop test-vm",
+            "Delete test-vm",
+        ]
+        for ex in vm_examples:
+            if st.button(ex, use_container_width=True, key=f"vm_{ex[:20]}"):
+                st.session_state["question"] = ex
 
 
 # ── Main input ────────────────────────────────────────────────────────────────
@@ -260,6 +299,15 @@ if run and question:
         intent = classify_intent(question)
 
     kind = intent.get("intent", "sql")
+
+    # ── Role guard: IAM/VM actions require the admin role, regardless of how
+    #    the intent was triggered (sidebar button or free-typed question) ──────
+    if kind != "sql" and not is_admin:
+        st.session_state.pop("df", None)
+        st.session_state.pop("sql", None)
+        st.error("Your account doesn't have permission for IAM/VM actions. "
+                 "Ask an admin to add you to `olist_admins`.")
+        st.stop()
 
     # ── IAM: list users ───────────────────────────────────────────────────────
     if kind == "iam_users":
