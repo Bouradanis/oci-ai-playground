@@ -8,7 +8,8 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+import folium
+from streamlit_folium import st_folium
 import anthropic
 from dotenv import load_dotenv
 
@@ -497,28 +498,35 @@ with estimate_tab:
         cust_lat, cust_lon = BRAZIL_STATE_COORDS[result_customer_state]
         sell_lat, sell_lon = BRAZIL_STATE_COORDS[result_seller_state]
 
-        map_fig = go.Figure()
-        map_fig.add_trace(go.Scattergeo(
-            lon=[sell_lon, cust_lon],
-            lat=[sell_lat, cust_lat],
-            mode="lines+markers",
-            line=dict(width=2, color="crimson"),
-            marker=dict(size=10, color=["darkblue", "crimson"]),
-            text=[f"Seller ({result_seller_state})", f"Customer ({result_customer_state})"],
-            hoverinfo="text",
-        ))
-        map_fig.update_layout(
-            geo=dict(
-                scope="south america",
-                showland=True, landcolor="rgb(235,235,235)",
-                showcountries=True,
-                center=dict(lat=-14, lon=-52),
-                projection_scale=3.2,
-            ),
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=350,
-        )
+        midpoint = ((cust_lat + sell_lat) / 2, (cust_lon + sell_lon) / 2)
+        # fit_bounds() is unreliable inside the st_folium iframe (Leaflet computes it before
+        # the container has its final width, so it often falls back to a whole-world zoom) --
+        # picking zoom from the span between the two points instead is more predictable here.
+        span_deg = max(abs(cust_lat - sell_lat), abs(cust_lon - sell_lon))
+        if span_deg < 2:
+            zoom = 7
+        elif span_deg < 5:
+            zoom = 6
+        elif span_deg < 10:
+            zoom = 5
+        elif span_deg < 20:
+            zoom = 4
+        else:
+            zoom = 3
+        route_map = folium.Map(location=midpoint, zoom_start=zoom, tiles="CartoDB positron")
+        folium.Marker(
+            [sell_lat, sell_lon], tooltip=f"Seller ({result_seller_state})",
+            icon=folium.Icon(color="blue"),
+        ).add_to(route_map)
+        folium.Marker(
+            [cust_lat, cust_lon], tooltip=f"Customer ({result_customer_state})",
+            icon=folium.Icon(color="red"),
+        ).add_to(route_map)
+        folium.PolyLine(
+            [[sell_lat, sell_lon], [cust_lat, cust_lon]], color="crimson", weight=2.5,
+        ).add_to(route_map)
+
         st.caption("Route shown is state-to-state (capital coordinates), not a precise address-to-address distance.")
-        st.plotly_chart(map_fig, use_container_width=True)
+        st_folium(route_map, use_container_width=True, height=350, returned_objects=[])
     elif "delivery_prediction_error" in st.session_state:
         st.error(f"Prediction failed: {st.session_state['delivery_prediction_error']}")

@@ -220,3 +220,6 @@ Wallet*.zip
 *_ds.html
 *.csv
 /output/
+
+# Large local dependency jars (e.g. synthea-with-dependencies.jar)
+*.jar
