@@ -15,12 +15,13 @@ import auth
 from db.connection import get_connection
 from tools.iam import get_users_df, get_groups_df, add_user_to_group, remove_user_from_group
 from tools.compute import get_vms_df, create_vm, start_vm, stop_vm, delete_vm
+from tools.predict import predict_delivery_delay, get_dropdown_options
 
 load_dotenv(Path(__file__).parent / '.env')
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="OCI Playground",
+    page_title="Olist Copilot",
     page_icon="🔮",
     layout="wide",
 )
@@ -43,7 +44,7 @@ if "identity" not in st.session_state:
         st.rerun()
     else:
         state = auth.new_state()
-        st.title("🔮 OCI Playground")
+        st.title("🔮 Olist Copilot")
         st.caption("Ask questions about Olist data or your OCI IAM — powered by Claude + Oracle ADB")
         st.markdown(f"[**Log in with OCI →**]({auth.build_authorize_url(state)})")
         st.stop()
@@ -58,7 +59,7 @@ if identity["role"] is None:
 
 is_admin = identity["role"] == "admin"
 
-st.title("🔮 OCI Playground")
+st.title("🔮 Olist Copilot")
 st.caption("Ask questions about Olist data or your OCI IAM — powered by Claude + Oracle ADB")
 
 # ── Schema context (cached at startup) ────────────────────────────────────────
@@ -225,193 +226,266 @@ with st.sidebar:
                 st.session_state["question"] = ex
 
 
-# ── Main input ────────────────────────────────────────────────────────────────
-question = st.text_input(
-    "Ask a question",
-    placeholder="e.g. Top 10 categories by revenue  —or—  Show me all IAM users",
-    key="question",
-)
+# ── Main area: chat vs. delivery estimate tabs ─────────────────────────────────
+chat_tab, estimate_tab = st.tabs(["💬 Chat", "🚚 Delivery Estimate"])
 
-run = st.button("Run", type="primary")
+with chat_tab:
+    # ── Main input ────────────────────────────────────────────────────────────
+    question = st.text_input(
+        "Ask a question",
+        placeholder="e.g. Top 10 categories by revenue  —or—  Show me all IAM users",
+        key="question",
+    )
 
-# ── Pending compute action confirmation ───────────────────────────────────────
-if "pending_compute" in st.session_state:
-    p    = st.session_state["pending_compute"]
-    action = p["action"]
-    name   = p.get("name", "")
-    if action == "vm_create":
-        msg = f"Create VM **{name}** ({p.get('shape','VM.Standard.E2.1.Micro')} · {p.get('ocpus',1)} OCPU · {p.get('memory_gb',1)}GB)"
-    elif action == "vm_start":
-        msg = f"Start VM **{name}**?"
-    elif action == "vm_stop":
-        msg = f"Stop VM **{name}**?"
-    elif action == "vm_delete":
-        msg = f"⚠️ Permanently delete VM **{name}**?"
-    else:
-        msg = f"{action} **{name}**?"
-    st.warning(msg)
-    c1, c2, _ = st.columns([1, 1, 5])
-    with c1:
-        if st.button("✓ Confirm", type="primary", key="confirm_compute"):
-            with st.spinner("Applying..."):
-                if action == "vm_create":
-                    result = create_vm(name, p.get("shape", "VM.Standard.E2.1.Micro"),
-                                       p.get("ocpus", 1), p.get("memory_gb", 1))
-                elif action == "vm_start":
-                    result = start_vm(name)
-                elif action == "vm_stop":
-                    result = stop_vm(name)
-                elif action == "vm_delete":
-                    result = delete_vm(name)
-                else:
-                    result = "Unknown action"
-            st.success(result)
-            del st.session_state["pending_compute"]
-    with c2:
-        if st.button("✗ Cancel", key="cancel_compute"):
-            del st.session_state["pending_compute"]
+    run = st.button("Run", type="primary")
+
+    # ── Pending compute action confirmation ───────────────────────────────────
+    if "pending_compute" in st.session_state:
+        p    = st.session_state["pending_compute"]
+        action = p["action"]
+        name   = p.get("name", "")
+        if action == "vm_create":
+            msg = f"Create VM **{name}** ({p.get('shape','VM.Standard.E2.1.Micro')} · {p.get('ocpus',1)} OCPU · {p.get('memory_gb',1)}GB)"
+        elif action == "vm_start":
+            msg = f"Start VM **{name}**?"
+        elif action == "vm_stop":
+            msg = f"Stop VM **{name}**?"
+        elif action == "vm_delete":
+            msg = f"⚠️ Permanently delete VM **{name}**?"
+        else:
+            msg = f"{action} **{name}**?"
+        st.warning(msg)
+        c1, c2, _ = st.columns([1, 1, 5])
+        with c1:
+            if st.button("✓ Confirm", type="primary", key="confirm_compute"):
+                with st.spinner("Applying..."):
+                    if action == "vm_create":
+                        result = create_vm(name, p.get("shape", "VM.Standard.E2.1.Micro"),
+                                           p.get("ocpus", 1), p.get("memory_gb", 1))
+                    elif action == "vm_start":
+                        result = start_vm(name)
+                    elif action == "vm_stop":
+                        result = stop_vm(name)
+                    elif action == "vm_delete":
+                        result = delete_vm(name)
+                    else:
+                        result = "Unknown action"
+                st.success(result)
+                del st.session_state["pending_compute"]
+        with c2:
+            if st.button("✗ Cancel", key="cancel_compute"):
+                del st.session_state["pending_compute"]
+                st.rerun()
+
+    # ── Pending IAM action confirmation ───────────────────────────────────────
+    if "pending_iam" in st.session_state:
+        p    = st.session_state["pending_iam"]
+        verb = "Add" if p["action"] == "iam_add" else "Remove"
+        prep = "to" if p["action"] == "iam_add" else "from"
+        st.warning(f"**Confirm:** {verb} **{p['user']}** {prep} group **{p['group']}**?")
+        c1, c2, _ = st.columns([1, 1, 5])
+        with c1:
+            if st.button("✓ Confirm", type="primary"):
+                with st.spinner("Applying change..."):
+                    if p["action"] == "iam_add":
+                        msg = add_user_to_group(p["user"], p["group"])
+                    else:
+                        msg = remove_user_from_group(p["user"], p["group"])
+                st.success(msg)
+                del st.session_state["pending_iam"]
+        with c2:
+            if st.button("✗ Cancel"):
+                del st.session_state["pending_iam"]
+                st.rerun()
+
+    # ── Execution ──────────────────────────────────────────────────────────────
+    if run and question:
+        with st.spinner("Classifying intent..."):
+            intent = classify_intent(question)
+
+        kind = intent.get("intent", "sql")
+
+        # ── Role guard: IAM/VM actions require the admin role, regardless of how
+        #    the intent was triggered (sidebar button or free-typed question) ──────
+        if kind != "sql" and not is_admin:
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            st.error("Your account doesn't have permission for IAM/VM actions. "
+                     "Ask an admin to add you to `olist_admins`.")
+            st.stop()
+
+        # ── IAM: list users ───────────────────────────────────────────────────
+        if kind == "iam_users":
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            with st.spinner("Fetching IAM users..."):
+                df = get_users_df()
+            st.subheader(f"IAM Users ({len(df)})")
+            st.dataframe(df, use_container_width=True)
+
+        # ── IAM: list groups ──────────────────────────────────────────────────
+        elif kind == "iam_groups":
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            with st.spinner("Fetching IAM groups..."):
+                df = get_groups_df()
+            st.subheader(f"IAM Groups ({len(df)})")
+            st.dataframe(df, use_container_width=True)
+
+        # ── IAM: add / remove (store pending for confirmation) ────────────────
+        elif kind in ("iam_add", "iam_remove"):
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            st.session_state["pending_iam"] = {
+                "action": kind,
+                "user":   intent.get("user", ""),
+                "group":  intent.get("group", ""),
+            }
             st.rerun()
 
-# ── Pending IAM action confirmation ──────────────────────────────────────────
-if "pending_iam" in st.session_state:
-    p    = st.session_state["pending_iam"]
-    verb = "Add" if p["action"] == "iam_add" else "Remove"
-    prep = "to" if p["action"] == "iam_add" else "from"
-    st.warning(f"**Confirm:** {verb} **{p['user']}** {prep} group **{p['group']}**?")
-    c1, c2, _ = st.columns([1, 1, 5])
-    with c1:
-        if st.button("✓ Confirm", type="primary"):
-            with st.spinner("Applying change..."):
-                if p["action"] == "iam_add":
-                    msg = add_user_to_group(p["user"], p["group"])
-                else:
-                    msg = remove_user_from_group(p["user"], p["group"])
-            st.success(msg)
-            del st.session_state["pending_iam"]
-    with c2:
-        if st.button("✗ Cancel"):
-            del st.session_state["pending_iam"]
+        # ── VM: list ───────────────────────────────────────────────────────────
+        elif kind == "vm_list":
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            with st.spinner("Fetching VMs..."):
+                df = get_vms_df()
+            st.subheader(f"Compute Instances ({len(df)})")
+            st.dataframe(df.drop(columns=['id']), use_container_width=True)
+
+        # ── VM: create / start / stop / delete (confirmation required) ─────────
+        elif kind in ("vm_create", "vm_start", "vm_stop", "vm_delete"):
+            st.session_state.pop("df", None)
+            st.session_state.pop("sql", None)
+            st.session_state["pending_compute"] = {
+                "action":    kind,
+                "name":      intent.get("name", "olist-mcp-vm"),
+                "shape":     intent.get("shape", "VM.Standard.E2.1.Micro"),
+                "ocpus":     intent.get("ocpus", 1),
+                "memory_gb": intent.get("memory_gb", 1),
+            }
             st.rerun()
 
-# ── Execution ─────────────────────────────────────────────────────────────────
-if run and question:
-    with st.spinner("Classifying intent..."):
-        intent = classify_intent(question)
-
-    kind = intent.get("intent", "sql")
-
-    # ── Role guard: IAM/VM actions require the admin role, regardless of how
-    #    the intent was triggered (sidebar button or free-typed question) ──────
-    if kind != "sql" and not is_admin:
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        st.error("Your account doesn't have permission for IAM/VM actions. "
-                 "Ask an admin to add you to `olist_admins`.")
-        st.stop()
-
-    # ── IAM: list users ───────────────────────────────────────────────────────
-    if kind == "iam_users":
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        with st.spinner("Fetching IAM users..."):
-            df = get_users_df()
-        st.subheader(f"IAM Users ({len(df)})")
-        st.dataframe(df, use_container_width=True)
-
-    # ── IAM: list groups ──────────────────────────────────────────────────────
-    elif kind == "iam_groups":
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        with st.spinner("Fetching IAM groups..."):
-            df = get_groups_df()
-        st.subheader(f"IAM Groups ({len(df)})")
-        st.dataframe(df, use_container_width=True)
-
-    # ── IAM: add / remove (store pending for confirmation) ────────────────────
-    elif kind in ("iam_add", "iam_remove"):
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        st.session_state["pending_iam"] = {
-            "action": kind,
-            "user":   intent.get("user", ""),
-            "group":  intent.get("group", ""),
-        }
-        st.rerun()
-
-    # ── VM: list ─────────────────────────────────────────────────────────────
-    elif kind == "vm_list":
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        with st.spinner("Fetching VMs..."):
-            df = get_vms_df()
-        st.subheader(f"Compute Instances ({len(df)})")
-        st.dataframe(df.drop(columns=['id']), use_container_width=True)
-
-    # ── VM: create / start / stop / delete (confirmation required) ────────────
-    elif kind in ("vm_create", "vm_start", "vm_stop", "vm_delete"):
-        st.session_state.pop("df", None)
-        st.session_state.pop("sql", None)
-        st.session_state["pending_compute"] = {
-            "action":    kind,
-            "name":      intent.get("name", "olist-mcp-vm"),
-            "shape":     intent.get("shape", "VM.Standard.E2.1.Micro"),
-            "ocpus":     intent.get("ocpus", 1),
-            "memory_gb": intent.get("memory_gb", 1),
-        }
-        st.rerun()
-
-    # ── SQL / data query ──────────────────────────────────────────────────────
-    else:
-        schema_context = get_schema_context()
-        with st.spinner("Generating SQL..."):
-            try:
-                sql = generate_sql(question, schema_context)
-            except Exception as e:
-                st.error(f"Claude API error: {e}")
-                st.stop()
-
-        with st.spinner("Querying Oracle ADB..."):
-            try:
-                df = run_sql(sql)
-            except Exception as e:
-                st.error(f"SQL error: {e}")
-                st.stop()
-
-        st.session_state["df"]  = df
-        st.session_state["sql"] = sql
-
-# ── Display SQL results (persists across sidebar interactions) ────────────────
-if "df" in st.session_state and "sql" in st.session_state:
-    df  = st.session_state["df"]
-    sql = st.session_state["sql"]
-
-    if show_sql:
-        with st.expander("Generated SQL", expanded=True):
-            st.code(sql, language="sql")
-
-    if df.empty:
-        st.warning("Query returned no results.")
-    else:
-        col1, col2 = st.columns([1, 1])
-        with col1:
-            st.subheader("Results")
-            st.dataframe(df.head(max_rows), use_container_width=True)
-            st.caption(f"{len(df):,} rows fetched · showing {min(max_rows, len(df)):,}")
-        with col2:
-            st.subheader("Chart")
-            if len(df.columns) >= 2:
+        # ── SQL / data query ────────────────────────────────────────────────────
+        else:
+            schema_context = get_schema_context()
+            with st.spinner("Generating SQL..."):
                 try:
-                    x_col, y_col = df.columns[0], df.columns[1]
-                    if chart_type == "bar":
-                        fig = px.bar(df.head(max_rows), x=x_col, y=y_col)
-                    elif chart_type == "line":
-                        fig = px.line(df.head(max_rows), x=x_col, y=y_col)
-                    elif chart_type == "scatter":
-                        fig = px.scatter(df.head(max_rows), x=x_col, y=y_col)
-                    elif chart_type == "pie":
-                        fig = px.pie(df.head(max_rows), names=x_col, values=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
+                    sql = generate_sql(question, schema_context)
                 except Exception as e:
-                    st.warning(f"Could not render chart: {e}")
-            else:
-                st.info("Need at least 2 columns to plot.")
+                    st.error(f"Claude API error: {e}")
+                    st.stop()
+
+            with st.spinner("Querying Oracle ADB..."):
+                try:
+                    df = run_sql(sql)
+                except Exception as e:
+                    st.error(f"SQL error: {e}")
+                    st.stop()
+
+            st.session_state["df"]  = df
+            st.session_state["sql"] = sql
+
+    # ── Display SQL results (persists across sidebar interactions) ─────────────
+    if "df" in st.session_state and "sql" in st.session_state:
+        df  = st.session_state["df"]
+        sql = st.session_state["sql"]
+
+        if show_sql:
+            with st.expander("Generated SQL", expanded=True):
+                st.code(sql, language="sql")
+
+        if df.empty:
+            st.warning("Query returned no results.")
+        else:
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.subheader("Results")
+                st.dataframe(df.head(max_rows), use_container_width=True)
+                st.caption(f"{len(df):,} rows fetched · showing {min(max_rows, len(df)):,}")
+            with col2:
+                st.subheader("Chart")
+                if len(df.columns) >= 2:
+                    try:
+                        x_col, y_col = df.columns[0], df.columns[1]
+                        if chart_type == "bar":
+                            fig = px.bar(df.head(max_rows), x=x_col, y=y_col)
+                        elif chart_type == "line":
+                            fig = px.line(df.head(max_rows), x=x_col, y=y_col)
+                        elif chart_type == "scatter":
+                            fig = px.scatter(df.head(max_rows), x=x_col, y=y_col)
+                        elif chart_type == "pie":
+                            fig = px.pie(df.head(max_rows), names=x_col, values=y_col)
+                        st.plotly_chart(fig, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Could not render chart: {e}")
+                else:
+                    st.info("Need at least 2 columns to plot.")
+
+with estimate_tab:
+    st.caption("Predict delivery delay for a hypothetical order — checkout-time features, GLM model (`DELIVERY_DELAY_GLM_FINAL`)")
+    dropdown_options = get_dropdown_options()
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("**Order**")
+        pred_category = st.selectbox("Product category", dropdown_options["PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH"])
+        pred_promised_days = st.number_input("Promised delivery window (days)", min_value=1, max_value=90, value=20)
+        pred_num_items = st.number_input("Number of items", min_value=1, max_value=20, value=1)
+    with col2:
+        st.markdown("**Shipping**")
+        pred_customer_state = st.selectbox("Customer state", dropdown_options["CUSTOMER_STATE"])
+        pred_seller_state = st.selectbox("Seller state", dropdown_options["PRIMARY_SELLER_STATE"])
+        pred_distance_km = st.number_input("Approx. shipping distance (km)", min_value=0.0, max_value=4000.0, value=400.0, step=50.0)
+    with col3:
+        st.markdown("**Cost & weight**")
+        pred_total_price = st.number_input("Total price (R$)", min_value=0.0, value=150.0, step=10.0)
+        pred_total_freight = st.number_input("Total freight value (R$)", min_value=0.0, value=25.0, step=5.0)
+        pred_total_weight = st.number_input("Total weight (g)", min_value=0.0, value=1000.0, step=100.0)
+
+    st.markdown("**Heaviest item dimensions**")
+    col4, col5, col6, col7 = st.columns(4)
+    with col4:
+        pred_heaviest_weight = st.number_input("Weight (g)", min_value=0.0, value=1000.0, step=100.0, key="pred_hw")
+    with col5:
+        pred_heaviest_length = st.number_input("Length (cm)", min_value=0.0, value=20.0, step=1.0, key="pred_hl")
+    with col6:
+        pred_heaviest_height = st.number_input("Height (cm)", min_value=0.0, value=10.0, step=1.0, key="pred_hh")
+    with col7:
+        pred_heaviest_width = st.number_input("Width (cm)", min_value=0.0, value=15.0, step=1.0, key="pred_hwi")
+
+    if st.button("Estimate Delay", type="primary"):
+        features = {
+            "PROMISED_DELIVERY_DAYS": float(pred_promised_days),
+            "NUM_ITEMS": int(pred_num_items),
+            "TOTAL_PRICE": float(pred_total_price),
+            "TOTAL_FREIGHT_VALUE": float(pred_total_freight),
+            "TOTAL_WEIGHT_G": float(pred_total_weight),
+            "PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH": pred_category,
+            "PRIMARY_SELLER_STATE": pred_seller_state,
+            "HEAVIEST_PRODUCT_WEIGHT_G": float(pred_heaviest_weight),
+            "HEAVIEST_PRODUCT_LENGTH_CM": float(pred_heaviest_length),
+            "HEAVIEST_PRODUCT_HEIGHT_CM": float(pred_heaviest_height),
+            "HEAVIEST_PRODUCT_WIDTH_CM": float(pred_heaviest_width),
+            "CUSTOMER_STATE": pred_customer_state,
+            "SAME_STATE_FLAG": 1 if pred_customer_state == pred_seller_state else 0,
+            "MAX_DISTANCE_KM": float(pred_distance_km),
+        }
+        st.session_state.pop("delivery_prediction_error", None)
+        with st.spinner("Scoring..."):
+            try:
+                st.session_state["delivery_prediction"] = predict_delivery_delay(features)
+            except Exception as e:
+                st.session_state.pop("delivery_prediction", None)
+                st.session_state["delivery_prediction_error"] = str(e)
+
+    if "delivery_prediction" in st.session_state:
+        pred_days = st.session_state["delivery_prediction"]
+        st.divider()
+        if pred_days > 0:
+            st.metric("Predicted delivery delay", f"{pred_days:.1f} days late")
+        else:
+            st.metric("Predicted delivery delay", f"{abs(pred_days):.1f} days early")
+        st.caption("Predicted at checkout time (GLM model, DELIVERY_DELAY_GLM_FINAL) — "
+                   "positive means later than promised, negative means earlier.")
+    elif "delivery_prediction_error" in st.session_state:
+        st.error(f"Prediction failed: {st.session_state['delivery_prediction_error']}")
