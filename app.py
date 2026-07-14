@@ -8,6 +8,7 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import anthropic
 from dotenv import load_dotenv
 
@@ -15,7 +16,7 @@ import auth
 from db.connection import get_connection
 from tools.iam import get_users_df, get_groups_df, add_user_to_group, remove_user_from_group
 from tools.compute import get_vms_df, create_vm, start_vm, stop_vm, delete_vm
-from tools.predict import predict_delivery_delay, get_dropdown_options
+from tools.predict import predict_delivery_delay, get_dropdown_options, BRAZIL_STATE_COORDS
 
 load_dotenv(Path(__file__).parent / '.env')
 
@@ -474,6 +475,10 @@ with estimate_tab:
         with st.spinner("Scoring..."):
             try:
                 st.session_state["delivery_prediction"] = predict_delivery_delay(features)
+                # Save the states used for THIS prediction, not whatever the form
+                # currently shows -- keeps the map in sync with the displayed result
+                # even if the user changes the dropdowns afterward without resubmitting.
+                st.session_state["delivery_prediction_states"] = (pred_customer_state, pred_seller_state)
             except Exception as e:
                 st.session_state.pop("delivery_prediction", None)
                 st.session_state["delivery_prediction_error"] = str(e)
@@ -487,5 +492,33 @@ with estimate_tab:
             st.metric("Predicted delivery delay", f"{abs(pred_days):.1f} days early")
         st.caption("Predicted at checkout time (GLM model, DELIVERY_DELAY_GLM_FINAL) — "
                    "positive means later than promised, negative means earlier.")
+
+        result_customer_state, result_seller_state = st.session_state["delivery_prediction_states"]
+        cust_lat, cust_lon = BRAZIL_STATE_COORDS[result_customer_state]
+        sell_lat, sell_lon = BRAZIL_STATE_COORDS[result_seller_state]
+
+        map_fig = go.Figure()
+        map_fig.add_trace(go.Scattergeo(
+            lon=[sell_lon, cust_lon],
+            lat=[sell_lat, cust_lat],
+            mode="lines+markers",
+            line=dict(width=2, color="crimson"),
+            marker=dict(size=10, color=["darkblue", "crimson"]),
+            text=[f"Seller ({result_seller_state})", f"Customer ({result_customer_state})"],
+            hoverinfo="text",
+        ))
+        map_fig.update_layout(
+            geo=dict(
+                scope="south america",
+                showland=True, landcolor="rgb(235,235,235)",
+                showcountries=True,
+                center=dict(lat=-14, lon=-52),
+                projection_scale=3.2,
+            ),
+            margin=dict(l=0, r=0, t=0, b=0),
+            height=350,
+        )
+        st.caption("Route shown is state-to-state (capital coordinates), not a precise address-to-address distance.")
+        st.plotly_chart(map_fig, use_container_width=True)
     elif "delivery_prediction_error" in st.session_state:
         st.error(f"Prediction failed: {st.session_state['delivery_prediction_error']}")

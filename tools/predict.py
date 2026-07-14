@@ -16,6 +16,20 @@ FEATURE_COLS = [
     "HEAVIEST_PRODUCT_WIDTH_CM", "CUSTOMER_STATE", "SAME_STATE_FLAG", "MAX_DISTANCE_KM",
 ]
 
+# Approximate Brazilian state capital coordinates (lat, lon) -- static reference data,
+# used only to illustrate the seller->customer route on a map. State-level, not a
+# precise address-to-address distance (the form only collects state, not an exact
+# location -- matches what the model itself actually uses).
+BRAZIL_STATE_COORDS = {
+    "AC": (-9.97, -67.81), "AL": (-9.65, -35.73), "AP": (0.03, -51.07), "AM": (-3.12, -60.02),
+    "BA": (-12.97, -38.51), "CE": (-3.72, -38.54), "DF": (-15.78, -47.93), "ES": (-20.32, -40.34),
+    "GO": (-16.68, -49.25), "MA": (-2.53, -44.30), "MT": (-15.60, -56.10), "MS": (-20.44, -54.65),
+    "MG": (-19.92, -43.94), "PA": (-1.46, -48.50), "PB": (-7.12, -34.86), "PR": (-25.43, -49.27),
+    "PE": (-8.05, -34.90), "PI": (-5.09, -42.80), "RJ": (-22.91, -43.17), "RN": (-5.79, -35.21),
+    "RS": (-30.03, -51.23), "RO": (-8.76, -63.90), "RR": (2.82, -60.67), "SC": (-27.60, -48.55),
+    "SP": (-23.55, -46.63), "SE": (-10.91, -37.07), "TO": (-10.18, -48.33),
+}
+
 _TRANSFORMER_PATH = Path(__file__).parent.parent / "ml" / "delivery_delay" / "yeo_johnson_target_transformer.joblib"
 _transformer = None
 
