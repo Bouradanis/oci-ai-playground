@@ -108,7 +108,7 @@ Classify the user message into exactly one of:
 {"intent": "iam_add", "user": "<username>", "group": "<groupname>"}     -- add a user to a group
 {"intent": "iam_remove", "user": "<username>", "group": "<groupname>"}  -- remove a user from a group
 {"intent": "vm_list"}                                                            -- list/show VMs or instances
-{"intent": "vm_create", "name": "<display_name>", "ocpus": <n>, "memory_gb": <n>} -- create a free tier VM (default: A1.Flex, 2 OCPU, 12GB)
+{"intent": "vm_create", "name": "<display_name>", "ocpus": <n>, "memory_gb": <n>} -- create a free tier VM (default: E2.1.Micro, 1 OCPU, 1GB -- always available, no capacity waits)
 {"intent": "vm_start", "name": "<vm_name>"}                                      -- start/activate a stopped VM
 {"intent": "vm_stop", "name": "<vm_name>"}                                       -- stop/deactivate a running VM
 {"intent": "vm_delete", "name": "<vm_name>"}                                     -- delete/terminate a VM"""
@@ -240,7 +240,7 @@ if "pending_compute" in st.session_state:
     action = p["action"]
     name   = p.get("name", "")
     if action == "vm_create":
-        msg = f"Create VM **{name}** ({p.get('shape','VM.Standard.A1.Flex')} · {p.get('ocpus',2)} OCPU · {p.get('memory_gb',12)}GB)"
+        msg = f"Create VM **{name}** ({p.get('shape','VM.Standard.E2.1.Micro')} · {p.get('ocpus',1)} OCPU · {p.get('memory_gb',1)}GB)"
     elif action == "vm_start":
         msg = f"Start VM **{name}**?"
     elif action == "vm_stop":
@@ -255,8 +255,8 @@ if "pending_compute" in st.session_state:
         if st.button("✓ Confirm", type="primary", key="confirm_compute"):
             with st.spinner("Applying..."):
                 if action == "vm_create":
-                    result = create_vm(name, p.get("shape", "VM.Standard.A1.Flex"),
-                                       p.get("ocpus", 2), p.get("memory_gb", 12))
+                    result = create_vm(name, p.get("shape", "VM.Standard.E2.1.Micro"),
+                                       p.get("ocpus", 1), p.get("memory_gb", 1))
                 elif action == "vm_start":
                     result = start_vm(name)
                 elif action == "vm_stop":
@@ -354,9 +354,9 @@ if run and question:
         st.session_state["pending_compute"] = {
             "action":    kind,
             "name":      intent.get("name", "olist-mcp-vm"),
-            "shape":     intent.get("shape", "VM.Standard.A1.Flex"),
-            "ocpus":     intent.get("ocpus", 2),
-            "memory_gb": intent.get("memory_gb", 12),
+            "shape":     intent.get("shape", "VM.Standard.E2.1.Micro"),
+            "ocpus":     intent.get("ocpus", 1),
+            "memory_gb": intent.get("memory_gb", 1),
         }
         st.rerun()
 

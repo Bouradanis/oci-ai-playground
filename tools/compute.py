@@ -11,8 +11,15 @@ SHAPE_LIMITS = {
 
 COMPARTMENT_ID = os.environ["COMPARTMENT_OCID"]
 SUBNET_ID      = os.environ["SUBNET_OCID"]
-IMAGE_ID       = os.environ["IMAGE_OCID"]
 SSH_PUBLIC_KEY = os.environ["SSH_PUBLIC_KEY"]
+
+# Different shapes need different-architecture images -- A1.Flex is ARM (aarch64),
+# E2.1.Micro is x86_64. One hardcoded image for every shape is what broke E2.1.Micro
+# creation after IMAGE_OCID got pointed at the ARM image.
+IMAGE_ID_BY_SHAPE = {
+    "VM.Standard.A1.Flex":    os.environ["IMAGE_OCID"],
+    "VM.Standard.E2.1.Micro": os.environ["IMAGE_OCID_X86"],
+}
 
 AVAILABILITY_DOMAINS = [
     "lXgJ:EU-FRANKFURT-1-AD-1",
@@ -94,7 +101,7 @@ def create_vm(display_name: str = 'olist-mcp-vm',
                     shape=shape,
                     shape_config=shape_config,
                     source_details=oci.core.models.InstanceSourceViaImageDetails(
-                        source_type="image", image_id=IMAGE_ID,
+                        source_type="image", image_id=IMAGE_ID_BY_SHAPE[shape],
                     ),
                     create_vnic_details=oci.core.models.CreateVnicDetails(
                         subnet_id=SUBNET_ID, assign_public_ip=True,
