@@ -1,0 +1,12 @@
+streamlit==1.55.0
+pandas==2.3.3
+plotly==6.6.0
+oracledb==3.4.2
+anthropic==0.89.0
+oci==2.169.0
+requests==2.33.1
+python-dotenv==1.2.2
+optuna==4.8.0
+xgboost==3.2.0
+lightgbm==4.6.0
+scikit-learn==1.8.0
