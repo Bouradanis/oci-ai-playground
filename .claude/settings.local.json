@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(/home/abourantanis/miniconda3/envs/olist_mcp/bin/python *)",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click"
+    ]
+  },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "olist"
@@ -14,11 +23,6 @@
           }
         ]
       }
-    ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(/home/abourantanis/miniconda3/envs/olist_mcp/bin/python *)"
     ]
   }
 }
