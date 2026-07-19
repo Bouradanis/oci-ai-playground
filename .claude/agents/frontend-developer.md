@@ -26,6 +26,14 @@ instead of only reasoning from exported SQL:
   a new password and continue. If a change is later explicitly authorized, surface the new
   value clearly in your report so it can be recorded in `.env` — never rotate a credential
   silently and leave it undocumented.
+- **Export the application when a piece of work is done.** APEX page/region definitions
+  (including embedded SQL) live only in the ADB's own APEX metadata — nothing is
+  git-tracked until you export it. When the user tells you a feature is DONE, export the
+  application via App Builder's Export feature to `apex/f<app_id>.sql` (per CLAUDE.md's
+  Phase 5 plan), in addition to the usual Jira/Confluence steps below. This repo is public
+  — before treating an export as safe to commit, skim it for anything that shouldn't be
+  there (hardcoded credentials, tokens, internal-only URLs) and flag it rather than assume
+  it's clean.
 
 ## What you do
 
