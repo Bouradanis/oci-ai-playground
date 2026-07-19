@@ -8,7 +8,12 @@
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_tabs",
       "mcp__playwright__browser_select_option",
-      "mcp__playwright__browser_take_screenshot"
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_fill_form",
+      "mcp__atlassian__addCommentToJiraIssue",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_drag",
+      "mcp__playwright__browser_navigate_back"
     ]
   },
   "enableAllProjectMcpServers": true,

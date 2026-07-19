@@ -21,6 +21,11 @@ instead of only reasoning from exported SQL:
   cheaper and more reliable than reasoning from a screenshot alone.
 - Take a screenshot after any change you make in the Page Designer to confirm it rendered
   as intended before moving on.
+- **Never change or reset a password/credential on your own** if you hit a forced
+  password-change prompt or similar. Stop and report it as a blocker instead — don't pick
+  a new password and continue. If a change is later explicitly authorized, surface the new
+  value clearly in your report so it can be recorded in `.env` — never rotate a credential
+  silently and leave it undocumented.
 
 ## What you do
 
