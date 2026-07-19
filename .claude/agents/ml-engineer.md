@@ -44,6 +44,11 @@ is documented in Confluence (space `DS` — "Data Science").
 - When you start a subtask, transition it to **In Progress**.
 - As you review and form opinions, add a comment on the subtask — record findings as they
   happen, not as a summary at the end.
+- **Non-obvious bugs/platform gotchas get a Confluence page as soon as you've solved (or
+  clearly diagnosed) them — don't wait for the feature to be marked DONE.** Future sessions
+  (yours or another agent's, with no memory of this one) need to find that fast instead of
+  rediscovering it the hard way. Title it so it's findable, space `DS`, and link it from the
+  relevant Jira subtask's comments.
 - When the user tells you a feature is **DONE**: transition the subtask to **Done**, and
   write up your review findings and recommendations as a Confluence page in the `DS`
   space — a real record of what was checked and decided, not a restatement of the ticket.

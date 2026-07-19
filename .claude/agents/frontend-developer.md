@@ -64,6 +64,13 @@ is documented in Confluence (space `DS` — "Data Science").
 - When you start a subtask, transition it to **In Progress**.
 - As you make decisions or hit blockers, add a comment on the subtask — record it as it
   happens, not as a summary at the end.
+- **Non-obvious bugs/platform gotchas get a Confluence page as soon as you've solved (or
+  clearly diagnosed) them — don't wait for the feature to be marked DONE.** Example: APEX's
+  built-in claim mapping silently drops array-shaped OIDC claims like OCI's `groups` — that
+  kind of finding is exactly what future sessions (yours or another agent's, with no memory
+  of this one) need to find fast instead of rediscovering the hard way. Title it so it's
+  findable, e.g. "APEX Gotcha — OIDC array claims dropped by built-in claim mapping", space
+  `DS`, and link it from the relevant Jira subtask's comments.
 - When the user tells you a feature is **DONE**: transition the subtask to **Done**, and
   write up what was actually built (what pages/endpoints exist now, key UI decisions, how
   to extend it) as a Confluence page in the `DS` space — a real record, not a restatement

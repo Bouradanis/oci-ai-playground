@@ -130,8 +130,8 @@ oci-ai-playground/
 
 **`olist_copilot/` is a duplicated copy, not the active app.** It was created as the
 starting point for the Phase 5 FastAPI + APEX migration, so work can happen there without
-touching the root-level Streamlit app that's still live (currently tunneled via ngrok and
-linked in job applications). The two will diverge over time as the migration progresses.
+touching the root-level Streamlit app that's still live (currently tunneled via ngrok for
+external access). The two will diverge over time as the migration progresses.
 `.mcp.json` still points at the root `server.py` — nothing currently uses the
 `olist_copilot/` copy. Relative paths inside `olist_copilot/*.py` were adjusted for the
 extra directory depth (e.g. `.env` and `ml/` are resolved via one extra `.parent`, since
