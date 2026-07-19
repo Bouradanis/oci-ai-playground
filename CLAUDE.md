@@ -18,7 +18,10 @@ an Oracle Autonomous Database (ADB). It has grown across several phases:
   detect network fraud patterns: provider rings, phantom billing, upcoding, patient churning
 - **Phase 5 (planned):** Oracle APEX front-end replacing Streamlit — chatbot UI in APEX
   backed by a FastAPI service deployed on the free-tier OCI Compute VM; APEX workspace
-  points to OML_USER schema; Olist analytics dashboard (KPI cards, charts, IR reports)
+  points to OML_USER schema; Olist analytics dashboard (KPI cards, charts, IR reports).
+  Migration work happens in `olist_copilot/` (see file structure below) — a duplicated
+  copy of the app, not a move, so the root-level Streamlit app keeps running undisturbed
+  until the new stack is proven and cut over.
 
 **GRAPHUSER schema** has been created with Graph Studio access and SELECT grants on all
 OML_USER tables (Olist + Cardiotocography + Synthea). Credentials are in OCI Vault
@@ -97,17 +100,42 @@ oci-ai-playground/
 │   ├── oci_vault.ipynb        ← vault setup + connection experiments
 │   └── olist_ingest.ipynb     ← one-off: CREATE tables + bulk load CSVs
 │
-└── olist_dataset/             ← raw Olist CSV files (gitignored)
-    ├── olist_orders_dataset.csv
-    ├── olist_order_items_dataset.csv
-    ├── olist_customers_dataset.csv
-    ├── olist_products_dataset.csv
-    ├── olist_sellers_dataset.csv
-    ├── olist_order_payments_dataset.csv
-    ├── olist_order_reviews_dataset.csv
-    ├── olist_geolocation_dataset.csv
-    └── product_category_name_translation.csv
+├── olist_dataset/             ← raw Olist CSV files (gitignored)
+│   ├── olist_orders_dataset.csv
+│   ├── olist_order_items_dataset.csv
+│   ├── olist_customers_dataset.csv
+│   ├── olist_products_dataset.csv
+│   ├── olist_sellers_dataset.csv
+│   ├── olist_order_payments_dataset.csv
+│   ├── olist_order_reviews_dataset.csv
+│   ├── olist_geolocation_dataset.csv
+│   └── product_category_name_translation.csv
+│
+└── olist_copilot/             ← Phase 5 migration target (FastAPI + APEX), see below
+    ├── app.py                 ← COPY of root app.py — not wired up as the live app yet
+    ├── auth.py                ← COPY of root auth.py
+    ├── server.py              ← COPY of root server.py
+    ├── db/
+    │   ├── __init__.py
+    │   └── connection.py
+    └── tools/
+        ├── __init__.py
+        ├── schema.py
+        ├── query.py
+        ├── plot.py
+        ├── iam.py
+        ├── compute.py
+        └── predict.py
 ```
+
+**`olist_copilot/` is a duplicated copy, not the active app.** It was created as the
+starting point for the Phase 5 FastAPI + APEX migration, so work can happen there without
+touching the root-level Streamlit app that's still live (currently tunneled via ngrok and
+linked in job applications). The two will diverge over time as the migration progresses.
+`.mcp.json` still points at the root `server.py` — nothing currently uses the
+`olist_copilot/` copy. Relative paths inside `olist_copilot/*.py` were adjusted for the
+extra directory depth (e.g. `.env` and `ml/` are resolved via one extra `.parent`, since
+those two things were **not** duplicated and still live only at the repo root).
 
 ---
 
