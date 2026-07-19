@@ -391,6 +391,12 @@ apex/
 | 2 — AI Chat | Custom | Text input → REST call → display table/chart/message |
 | 3 — Orders | Interactive Report | Full Olist orders with drilldown |
 | 4 — Sellers | Interactive Grid | Leaderboard with faceted search |
+| 5 — Delivery Estimate | Custom form | Order/shipping inputs → REST call to the GLM model → predicted delay + route map |
+| 6 — IAM Admin | Interactive Report + actions | List IAM users/groups, add/remove user from group (confirm step before mutating) — admin only |
+| 7 — VM Admin | Interactive Report + actions | List/create/start/stop/delete Compute VMs (confirm step before mutating) — admin only |
+
+Pages 5–7 port the remaining Streamlit features (`tools/predict.py`, `tools/iam.py`,
+`tools/compute.py`) not yet reflected above when this table was first written.
 
 ### Key decisions
 
