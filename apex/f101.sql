@@ -33,26 +33,28 @@ prompt APPLICATION 101 - Olist Copilot
 -- Application Export:
 --   Application:     101
 --   Name:            Olist Copilot
---   Date and Time:   19:11 Sunday July 19, 2026
+--   Date and Time:   14:41 Monday July 20, 2026
 --   Exported By:     OLIST_ADMIN
 --   Flashback:       0
 --   Export Type:     Application Export
---     Pages:                      6
---       Items:                    5
---       Processes:                4
---       Regions:                 12
---       Buttons:                  1
+--     Pages:                      8
+--       Items:                   20
+--       Processes:                6
+--       Regions:                 17
+--       Buttons:                  3
 --       Dynamic Actions:          1
 --     Shared Components:
 --       Logic:
+--         Items:                  2
+--         App Settings:           1
 --         Build Options:          1
 --       Navigation:
 --         Lists:                  2
 --         Breadcrumbs:            1
---           Entries:              3
+--           Entries:              5
 --       Security:
---         Authentication:         1
---         Authorization:          1
+--         Authentication:         2
+--         Authorization:          3
 --       User Interface:
 --         Themes:                 1
 --         Templates:
@@ -89,10 +91,11 @@ wwv_imp_workspace.create_flow(
 ,p_timestamp_format=>'DS'
 ,p_timestamp_tz_format=>'DS'
 ,p_flow_image_prefix => nvl(wwv_flow_application_install.get_image_prefix,'')
-,p_authentication_id=>wwv_flow_imp.id(12448527169856823)
+,p_authentication_id=>wwv_flow_imp.id(12498926172353996)
 ,p_application_tab_set=>0
 ,p_logo_type=>'T'
 ,p_logo_text=>'Olist Copilot'
+,p_public_user=>'APEX_PUBLIC_USER'
 ,p_proxy_server=>nvl(wwv_flow_application_install.get_proxy,'')
 ,p_no_proxy_domains=>nvl(wwv_flow_application_install.get_no_proxy_domains,'')
 ,p_flow_version=>'Release 1.0'
@@ -100,6 +103,7 @@ wwv_imp_workspace.create_flow(
 ,p_exact_substitutions_only=>'Y'
 ,p_browser_cache=>'N'
 ,p_browser_frame=>'D'
+,p_security_scheme=>wwv_flow_imp.id(12500728700745732)
 ,p_rejoin_existing_sessions=>'N'
 ,p_csv_encoding=>'Y'
 ,p_auto_time_zone=>'N'
@@ -107,7 +111,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_value_01=>'Olist Copilot'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>6
-,p_version_scn=>49823490098077
+,p_version_scn=>49823626457994
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -137,13 +141,26 @@ wwv_flow_imp_shared.create_user_interface(
 );
 end;
 /
+prompt --workspace/credentials/oci_identity_domain_oidc_credential
+begin
+wwv_imp_workspace.create_credential(
+ p_id=>wwv_flow_imp.id(12498797823346067)
+,p_name=>'OCI Identity Domain OIDC Credential'
+,p_static_id=>'oci_identity_domain_oidc_credential'
+,p_authentication_type=>'OAUTH2_CLIENT_CREDENTIALS'
+,p_prompt_on_install=>true
+,p_credential_comment=>'Client ID/Secret for "olist-apex-oidc-app" - a dedicated OCI Identity Domain confidential app created for KAN-9, fully isolated from olist-streamlit-app (used by the separate Streamlit deployment). Redirect URI: https://gce1993103f31bd-oracletestdb.a'
+||'db.eu-frankfurt-1.oraclecloudapps.com/ords/apex_authentication.callback'
+);
+end;
+/
 prompt --application/shared_components/navigation/lists/navigation_menu
 begin
 wwv_flow_imp_shared.create_list(
  p_id=>wwv_flow_imp.id(12449355468856832)
 ,p_name=>'Navigation Menu'
 ,p_list_status=>'PUBLIC'
-,p_version_scn=>49823488952570
+,p_version_scn=>49823605006351
 );
 wwv_flow_imp_shared.create_list_item(
  p_id=>wwv_flow_imp.id(12460977877857017)
@@ -170,6 +187,24 @@ wwv_flow_imp_shared.create_list_item(
 ,p_list_item_icon=>'fa-table-pointer'
 ,p_list_item_current_type=>'COLON_DELIMITED_PAGE_LIST'
 ,p_list_item_current_for_pages=>'4'
+);
+wwv_flow_imp_shared.create_list_item(
+ p_id=>wwv_flow_imp.id(12521996379478812)
+,p_list_item_display_sequence=>40
+,p_list_item_link_text=>'API Test'
+,p_list_item_link_target=>'f?p=&APP_ID.:8:&APP_SESSION.::&DEBUG.:::'
+,p_list_item_icon=>'fa-file-o'
+,p_list_item_current_type=>'COLON_DELIMITED_PAGE_LIST'
+,p_list_item_current_for_pages=>'8'
+);
+wwv_flow_imp_shared.create_list_item(
+ p_id=>wwv_flow_imp.id(12526834731729469)
+,p_list_item_display_sequence=>50
+,p_list_item_link_text=>'Delivery Estimate'
+,p_list_item_link_target=>'f?p=&APP_ID.:6:&APP_SESSION.::&DEBUG.:::'
+,p_list_item_icon=>'fa-file-o'
+,p_list_item_current_type=>'COLON_DELIMITED_PAGE_LIST'
+,p_list_item_current_for_pages=>'6'
 );
 end;
 /
@@ -824,14 +859,68 @@ wwv_flow_imp_shared.create_security_scheme(
 );
 end;
 /
+prompt --application/shared_components/security/authorizations/is_olist_admin
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(12500583545736427)
+,p_name=>'Is Olist Admin'
+,p_scheme_type=>'NATIVE_FUNCTION_BODY'
+,p_attribute_01=>'RETURN INSTR(NVL(:G_APEX_GROUPS, ''''), ''olist_admins'') > 0;'
+,p_error_message=>'This action requires administrator access (olist_admins group membership).'
+,p_version_scn=>49823509143527
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
+prompt --application/shared_components/security/authorizations/is_olist_member
+begin
+wwv_flow_imp_shared.create_security_scheme(
+ p_id=>wwv_flow_imp.id(12500728700745732)
+,p_name=>'Is Olist Member'
+,p_scheme_type=>'NATIVE_FUNCTION_BODY'
+,p_attribute_01=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'RETURN INSTR(NVL(:G_APEX_GROUPS, ''''), ''olist_admins'') > 0',
+'    OR INSTR(NVL(:G_APEX_GROUPS, ''''), ''olist_users'') > 0;'))
+,p_error_message=>'Access to this application is restricted to olist_admins or olist_users group members.'
+,p_version_scn=>49823509312314
+,p_caching=>'BY_USER_BY_SESSION'
+);
+end;
+/
 prompt --application/shared_components/navigation/navigation_bar
 begin
 null;
 end;
 /
+prompt --application/shared_components/logic/application_items/g_apex_groups
+begin
+wwv_flow_imp_shared.create_flow_item(
+ p_id=>wwv_flow_imp.id(12499653050417834)
+,p_name=>'G_APEX_GROUPS'
+,p_protection_level=>'I'
+,p_version_scn=>49823503304743
+);
+end;
+/
+prompt --application/shared_components/logic/application_items/g_apex_token
+begin
+wwv_flow_imp_shared.create_flow_item(
+ p_id=>wwv_flow_imp.id(12508521732324202)
+,p_name=>'G_APEX_TOKEN'
+,p_protection_level=>'I'
+,p_version_scn=>49823520165453
+);
+end;
+/
 prompt --application/shared_components/logic/application_settings
 begin
-null;
+wwv_flow_imp_shared.create_app_setting(
+ p_id=>wwv_flow_imp.id(12521661572472843)
+,p_name=>'APEX_FASTAPI_SHARED_SECRET'
+,p_value=>'REDACTED_SEE_DOTENV_APEX_FASTAPI_SHARED_SECRET'
+,p_is_required=>'N'
+,p_version_scn=>49823600100031
+);
 end;
 /
 prompt --application/shared_components/navigation/tabs/standard
@@ -880,6 +969,18 @@ wwv_flow_imp_shared.create_menu_option(
 ,p_short_name=>'Sellers'
 ,p_link=>'f?p=&APP_ID.:4:&APP_SESSION.::&DEBUG.:::'
 ,p_page_id=>4
+);
+wwv_flow_imp_shared.create_menu_option(
+ p_id=>wwv_flow_imp.id(12522806473478824)
+,p_short_name=>'API Test'
+,p_link=>'f?p=&APP_ID.:8:&APP_SESSION.::&DEBUG.:::'
+,p_page_id=>8
+);
+wwv_flow_imp_shared.create_menu_option(
+ p_id=>wwv_flow_imp.id(12527734420729481)
+,p_short_name=>'Delivery Estimate'
+,p_link=>'f?p=&APP_ID.:6:&APP_SESSION.::&DEBUG.:::'
+,p_page_id=>6
 );
 end;
 /
@@ -1005,6 +1106,65 @@ wwv_flow_imp_shared.create_authentication(
 ,p_use_secure_cookie_yn=>'N'
 ,p_ras_mode=>0
 ,p_version_scn=>49823474772487
+);
+end;
+/
+prompt --application/shared_components/security/authentications/oci_identity_domain_oidc
+begin
+wwv_flow_imp_shared.create_authentication(
+ p_id=>wwv_flow_imp.id(12498926172353996)
+,p_name=>'OCI Identity Domain OIDC'
+,p_scheme_type=>'NATIVE_SOCIAL'
+,p_attribute_01=>wwv_flow_imp.id(12498797823346067)
+,p_attribute_02=>'OPENID_CONNECT'
+,p_attribute_03=>'https://idcs-9fe458cebb644d45bcee5e57413682dd.identity.oraclecloud.com/.well-known/openid-configuration'
+,p_attribute_07=>'profile groups'
+,p_attribute_09=>'#sub# (#APEX_AUTH_NAME#)'
+,p_attribute_10=>'groups'
+,p_attribute_11=>'N'
+,p_attribute_13=>'Y'
+,p_attribute_14=>'G_APEX_GROUPS'
+,p_plsql_code=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'procedure oidc_post_auth is',
+'    l_count  pls_integer := 0;',
+'        l_name   varchar2(400);',
+'            l_groups varchar2(4000) := '''';',
+'                l_token  varchar2(4000);',
+'                begin',
+'                    begin',
+'                            l_count := apex_json.get_count(p_path => ''groups'');',
+'                                exception when others then',
+'                                        l_count := 0;',
+'                                            end;',
+'',
+'                                                for i in 1 .. nvl(l_count, 0) loop',
+'                                                        begin',
+'                                                                    l_name := apex_json.get_varchar2(p_path => ''groups[%d].name'', p0 => i);',
+'                                                                            exception when others then',
+'                                                                                        l_name := null;',
+'                                                                                                end;',
+'                                                                                                        if l_name is not null then',
+'                                                                                                                    l_groups := l_groups || l_name || '':'';',
+'                                                                                                                            end if;',
+'                                                                                                                                end loop;',
+'',
+'                                                                                                                                    apex_util.set_session_state(''G_APEX_GROUPS'', l_groups);',
+'',
+'                                                                                                                                        -- KAN-6 investigation: capture the OAuth access token obtained during this',
+'                                                                                                                                            -- Social Sign-In login, if APEX''s credential store retains one, so we can',
+'                                                                                                                                                -- confirm via Session State whether it is forwardable to FastAPI.',
+'                                                                                                                                                    begin',
+'                                                                                                                                                            l_token := apex_web_service.oauth_get_last_token;',
+'                                                                                                                                                                exception when others then',
+'                                                                                                                                                                        l_token := null;',
+'                                                                                                                                                                            end;',
+'                                                                                                                                                                                apex_util.set_session_state(''G_APEX_TOKEN'', l_token);',
+'                                                                                                                                                                                end oidc_post_auth;'))
+,p_invalid_session_type=>'LOGIN'
+,p_post_auth_process=>'oidc_post_auth'
+,p_use_secure_cookie_yn=>'N'
+,p_ras_mode=>0
+,p_version_scn=>49823520234006
 );
 end;
 /
@@ -2063,6 +2223,537 @@ wwv_flow_imp_page.create_page_item(
 ,p_display_as=>'NATIVE_HIDDEN'
 ,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
   'value_protected', 'Y')).to_clob
+);
+end;
+/
+prompt --application/pages/page_00006
+begin
+wwv_flow_imp_page.create_page(
+ p_id=>6
+,p_name=>'Delivery Estimate'
+,p_alias=>'DELIVERY-ESTIMATE'
+,p_step_title=>'Delivery Estimate'
+,p_autocomplete_on_off=>'OFF'
+,p_javascript_file_urls=>'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+,p_javascript_code_onload=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'(function() {',
+'    var raw = $v(''P6_RESULT'');',
+'    var resultDiv = document.getElementById(''delivery-result-text'');',
+'    var mapDiv = document.getElementById(''delivery-map'');',
+'    if (!raw || !resultDiv) { return; }',
+'    var data;',
+'    try {',
+'        data = JSON.parse(raw);',
+'    } catch (e) {',
+'        resultDiv.innerHTML = ''<strong>Error parsing response:</strong> '' + raw;',
+'        return;',
+'    }',
+'    if (data.error || data.detail) {',
+'        resultDiv.innerHTML = ''<strong style="color:#b00;">Error:</strong> '' + (data.error || JSON.stringify(data.detail));',
+'        return;',
+'    }',
+'    var days = data.predicted_delay_days;',
+'    var verdict = days > 0',
+'        ? (''<span style="color:#b00000;">Predicted '' + Math.abs(days).toFixed(2) + '' day(s) LATE</span>'')',
+'        : (''<span style="color:#008000;">Predicted '' + Math.abs(days).toFixed(2) + '' day(s) EARLY</span>'');',
+'    resultDiv.innerHTML = ''<strong>Delivery Estimate:</strong> '' + verdict +',
+'        '' &nbsp;(route: '' + data.seller_state + '' &rarr; '' + data.customer_state + '')'';',
+'',
+'    if (data.seller_lat != null && data.customer_lat != null && window.L && mapDiv) {',
+'        mapDiv.innerHTML = '''';',
+'        var map = L.map(''delivery-map'').setView([',
+'            (data.seller_lat + data.customer_lat) / 2,',
+'            (data.seller_lon + data.customer_lon) / 2',
+'        ], 4);',
+'        L.tileLayer(''https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'', {',
+'            attribution: ''&copy; OpenStreetMap contributors''',
+'        }).addTo(map);',
+'        L.marker([data.seller_lat, data.seller_lon]).addTo(map)',
+'            .bindPopup(''Seller: '' + data.seller_state);',
+'        L.marker([data.customer_lat, data.customer_lon]).addTo(map)',
+'            .bindPopup(''Customer: '' + data.customer_state);',
+'        L.polyline([',
+'            [data.seller_lat, data.seller_lon],',
+'            [data.customer_lat, data.customer_lon]',
+'        ], {color: ''blue'', dashArray: ''6, 6''}).addTo(map);',
+'        map.fitBounds([',
+'            [data.seller_lat, data.seller_lon],',
+'            [data.customer_lat, data.customer_lon]',
+'        ], {padding: [30, 30]});',
+'    }',
+'})();'))
+,p_css_file_urls=>'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+,p_page_template_options=>'#DEFAULT#'
+,p_protection_level=>'C'
+,p_page_component_map=>'16'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(12468869869862945)
+,p_plug_name=>'Delivery Estimate Form'
+,p_title=>'Delivery Estimate'
+,p_region_template_options=>'#DEFAULT#:t-Region--scrollBody'
+,p_plug_template=>4072358936313175081
+,p_plug_display_sequence=>10
+,p_location=>null
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(12527273301729475)
+,p_plug_name=>'Breadcrumb'
+,p_region_template_options=>'#DEFAULT#:t-BreadcrumbRegion--useBreadcrumbTitle'
+,p_component_template_options=>'#DEFAULT#'
+,p_plug_template=>2531463326621247859
+,p_plug_display_sequence=>10
+,p_plug_display_point=>'REGION_POSITION_01'
+,p_menu_id=>wwv_flow_imp.id(12448894550856826)
+,p_plug_source_type=>'NATIVE_BREADCRUMB'
+,p_menu_template_id=>4072363345357175094
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(12529656258799711)
+,p_plug_name=>'Delivery Estimate Result'
+,p_title=>'Result'
+,p_region_template_options=>'#DEFAULT#:t-Region--scrollBody'
+,p_plug_template=>4072358936313175081
+,p_plug_display_sequence=>10
+,p_location=>null
+,p_plug_source=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'<div id="delivery-result-text" style="font-size: 1.1em; margin-bottom: 10px;"></div>',
+'<div id="delivery-map" style="height: 400px; width: 100%; border-radius: 4px;"></div>'))
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(12529339354799708)
+,p_button_sequence=>10
+,p_button_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_button_name=>'ESTIMATE'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_is_hot=>'Y'
+,p_button_image_alt=>'Estimate Delivery'
+,p_button_position=>'PREVIOUS'
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12468985218862946)
+,p_name=>'P6_PROMISED_DELIVERY_DAYS'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'23'
+,p_prompt=>'Promised Delivery Days'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12469096824862947)
+,p_name=>'P6_NUM_ITEMS'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'1'
+,p_prompt=>'Number of Items'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12469155741862948)
+,p_name=>'P6_TOTAL_PRICE'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'79.90'
+,p_prompt=>'Total Price'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12469280891862949)
+,p_name=>'P6_TOTAL_FREIGHT_VALUE'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'16.46'
+,p_prompt=>'Total Freight Value'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12469304318862950)
+,p_name=>'P6_TOTAL_WEIGHT_G'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'683'
+,p_prompt=>'Total Weight (g)'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12528644919799701)
+,p_name=>'P6_PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'health_beauty'
+,p_prompt=>'Product Category'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>'SELECT DISTINCT PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH D, PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH R FROM DELIVERY_DELAY_FEATURES WHERE PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH IS NOT NULL ORDER BY 1'
+,p_lov_display_null=>'YES'
+,p_cHeight=>1
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_lov_display_extra=>'YES'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12528748710799702)
+,p_name=>'P6_PRIMARY_SELLER_STATE'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'SP'
+,p_prompt=>'Seller State'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>'SELECT DISTINCT PRIMARY_SELLER_STATE D, PRIMARY_SELLER_STATE R FROM DELIVERY_DELAY_FEATURES WHERE PRIMARY_SELLER_STATE IS NOT NULL ORDER BY 1'
+,p_lov_display_null=>'YES'
+,p_cHeight=>1
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_lov_display_extra=>'YES'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12528821143799703)
+,p_name=>'P6_HEAVIEST_PRODUCT_WEIGHT_G'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'683'
+,p_prompt=>'Heaviest Item Weight (g)'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12528975823799704)
+,p_name=>'P6_HEAVIEST_PRODUCT_LENGTH_CM'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'25'
+,p_prompt=>'Heaviest Item Length (cm)'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12529059526799705)
+,p_name=>'P6_HEAVIEST_PRODUCT_HEIGHT_CM'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'13'
+,p_prompt=>'Heaviest Item Height (cm)'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12529126121799706)
+,p_name=>'P6_HEAVIEST_PRODUCT_WIDTH_CM'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'20'
+,p_prompt=>'Heaviest Item Width (cm)'
+,p_display_as=>'NATIVE_NUMBER_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'number_alignment', 'left',
+  'virtual_keyboard', 'decimal')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12529230638799707)
+,p_name=>'P6_CUSTOMER_STATE'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_item_default=>'RJ'
+,p_prompt=>'Customer State'
+,p_display_as=>'NATIVE_SELECT_LIST'
+,p_lov=>'SELECT DISTINCT CUSTOMER_STATE D, CUSTOMER_STATE R FROM DELIVERY_DELAY_FEATURES WHERE CUSTOMER_STATE IS NOT NULL ORDER BY 1'
+,p_lov_display_null=>'YES'
+,p_cHeight=>1
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_lov_display_extra=>'YES'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'page_action_on_selection', 'NONE')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12529426837799709)
+,p_name=>'P6_RESULT'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468869869862945)
+,p_display_as=>'NATIVE_HIDDEN'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'value_protected', 'Y')).to_clob
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(12529529056799710)
+,p_process_sequence=>10
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_PLSQL'
+,p_process_name=>'Call FastAPI Predict Endpoint'
+,p_process_sql_clob=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'declare',
+'    l_secret   varchar2(200);',
+'    l_username varchar2(400);',
+'    l_groups   varchar2(4000);',
+'    l_ts       varchar2(20);',
+'    l_payload  varchar2(4000);',
+'    l_sig      varchar2(64);',
+'    l_body     clob;',
+'    l_response clob;',
+'begin',
+'    l_secret   := apex_app_setting.get_value(p_name => ''APEX_FASTAPI_SHARED_SECRET'');',
+'    l_username := :APP_USER;',
+'    l_groups   := nvl(:G_APEX_GROUPS, '''');',
+'    l_ts       := to_char(round((cast(sys_extract_utc(systimestamp) as date) - date ''1970-01-01'') * 86400));',
+'    l_payload  := l_username || chr(10) || l_groups || chr(10) || l_ts;',
+'    l_sig      := lower(rawtohex(dbms_crypto.mac(',
+'                    src => utl_raw.cast_to_raw(l_payload),',
+'                    typ => 3,',
+'                    key => utl_raw.cast_to_raw(l_secret))));',
+'',
+'    apex_json.initialize_clob_output;',
+'    apex_json.open_object;',
+'    apex_json.write(''PROMISED_DELIVERY_DAYS'', to_number(:P6_PROMISED_DELIVERY_DAYS));',
+'    apex_json.write(''NUM_ITEMS'', to_number(:P6_NUM_ITEMS));',
+'    apex_json.write(''TOTAL_PRICE'', to_number(:P6_TOTAL_PRICE));',
+'    apex_json.write(''TOTAL_FREIGHT_VALUE'', to_number(:P6_TOTAL_FREIGHT_VALUE));',
+'    apex_json.write(''TOTAL_WEIGHT_G'', to_number(:P6_TOTAL_WEIGHT_G));',
+'    apex_json.write(''PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH'', :P6_PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH);',
+'    apex_json.write(''PRIMARY_SELLER_STATE'', :P6_PRIMARY_SELLER_STATE);',
+'    apex_json.write(''HEAVIEST_PRODUCT_WEIGHT_G'', to_number(:P6_HEAVIEST_PRODUCT_WEIGHT_G));',
+'    apex_json.write(''HEAVIEST_PRODUCT_LENGTH_CM'', to_number(:P6_HEAVIEST_PRODUCT_LENGTH_CM));',
+'    apex_json.write(''HEAVIEST_PRODUCT_HEIGHT_CM'', to_number(:P6_HEAVIEST_PRODUCT_HEIGHT_CM));',
+'    apex_json.write(''HEAVIEST_PRODUCT_WIDTH_CM'', to_number(:P6_HEAVIEST_PRODUCT_WIDTH_CM));',
+'    apex_json.write(''CUSTOMER_STATE'', :P6_CUSTOMER_STATE);',
+'    apex_json.close_object;',
+'    l_body := apex_json.get_clob_output;',
+'    apex_json.free_output;',
+'',
+'    apex_web_service.g_request_headers(1).name  := ''Content-Type'';',
+'    apex_web_service.g_request_headers(1).value := ''application/json'';',
+'    apex_web_service.g_request_headers(2).name  := ''X-Apex-Username'';',
+'    apex_web_service.g_request_headers(2).value := l_username;',
+'    apex_web_service.g_request_headers(3).name  := ''X-Apex-Groups'';',
+'    apex_web_service.g_request_headers(3).value := l_groups;',
+'    apex_web_service.g_request_headers(4).name  := ''X-Apex-Timestamp'';',
+'    apex_web_service.g_request_headers(4).value := l_ts;',
+'    apex_web_service.g_request_headers(5).name  := ''X-Apex-Signature'';',
+'    apex_web_service.g_request_headers(5).value := l_sig;',
+'    apex_web_service.g_request_headers(6).name  := ''bypass-tunnel-reminder'';',
+'    apex_web_service.g_request_headers(6).value := ''true'';',
+'',
+'    l_response := apex_web_service.make_rest_request(',
+'                    p_url         => ''https://five-tools-poke.loca.lt/predict'',',
+'                    p_http_method => ''POST'',',
+'                    p_body        => l_body);',
+'',
+'    :P6_RESULT := l_response;',
+'exception',
+'    when others then',
+'        :P6_RESULT := ''ERROR: '' || sqlerrm;',
+'end;'))
+,p_process_clob_language=>'PLSQL'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(12529339354799708)
+,p_internal_uid=>12529529056799710
+);
+end;
+/
+prompt --application/pages/page_00008
+begin
+wwv_flow_imp_page.create_page(
+ p_id=>8
+,p_name=>'API Test'
+,p_alias=>'API-TEST'
+,p_step_title=>'API Test'
+,p_autocomplete_on_off=>'OFF'
+,p_page_template_options=>'#DEFAULT#'
+,p_protection_level=>'C'
+,p_page_component_map=>'16'
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(12468356959862940)
+,p_plug_name=>'New'
+,p_title=>'API Test'
+,p_region_template_options=>'#DEFAULT#:t-Region--scrollBody'
+,p_plug_template=>4072358936313175081
+,p_plug_display_sequence=>10
+,p_location=>null
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'expand_shortcuts', 'N',
+  'output_as', 'HTML')).to_clob
+);
+wwv_flow_imp_page.create_page_plug(
+ p_id=>wwv_flow_imp.id(12522340918478816)
+,p_plug_name=>'Breadcrumb'
+,p_region_template_options=>'#DEFAULT#:t-BreadcrumbRegion--useBreadcrumbTitle'
+,p_component_template_options=>'#DEFAULT#'
+,p_plug_template=>2531463326621247859
+,p_plug_display_sequence=>10
+,p_plug_display_point=>'REGION_POSITION_01'
+,p_menu_id=>wwv_flow_imp.id(12448894550856826)
+,p_plug_source_type=>'NATIVE_BREADCRUMB'
+,p_menu_template_id=>4072363345357175094
+);
+wwv_flow_imp_page.create_page_button(
+ p_id=>wwv_flow_imp.id(12468533320862942)
+,p_button_sequence=>20
+,p_button_plug_id=>wwv_flow_imp.id(12468356959862940)
+,p_button_name=>'ASK'
+,p_button_action=>'SUBMIT'
+,p_button_template_options=>'#DEFAULT#'
+,p_button_template_id=>4072362960822175091
+,p_button_image_alt=>'Ask'
+,p_grid_new_row=>'Y'
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12468417140862941)
+,p_name=>'P8_QUESTION'
+,p_item_sequence=>10
+,p_item_plug_id=>wwv_flow_imp.id(12468356959862940)
+,p_item_default=>'How many orders are there in total?'
+,p_prompt=>'Question'
+,p_display_as=>'NATIVE_TEXT_FIELD'
+,p_cSize=>30
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'disabled', 'N',
+  'submit_when_enter_pressed', 'N',
+  'subtype', 'TEXT',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_item(
+ p_id=>wwv_flow_imp.id(12468622025862943)
+,p_name=>'P8_RESULT'
+,p_data_type=>'CLOB'
+,p_item_sequence=>30
+,p_item_plug_id=>wwv_flow_imp.id(12468356959862940)
+,p_prompt=>'Result'
+,p_display_as=>'NATIVE_TEXTAREA'
+,p_cSize=>30
+,p_cHeight=>5
+,p_field_template=>1609121967514267634
+,p_item_template_options=>'#DEFAULT#'
+,p_attributes=>wwv_flow_t_plugin_attributes(wwv_flow_t_varchar2(
+  'auto_height', 'N',
+  'character_counter', 'N',
+  'resizable', 'Y',
+  'trim_spaces', 'BOTH')).to_clob
+);
+wwv_flow_imp_page.create_page_process(
+ p_id=>wwv_flow_imp.id(12468775059862944)
+,p_process_sequence=>10
+,p_process_point=>'AFTER_SUBMIT'
+,p_process_type=>'NATIVE_PLSQL'
+,p_process_name=>'Call FastAPI Query Endpoint'
+,p_process_sql_clob=>wwv_flow_string.join(wwv_flow_t_varchar2(
+'declare',
+'    l_secret     varchar2(200);',
+'    l_username   varchar2(400);',
+'    l_groups     varchar2(4000);',
+'    l_ts         varchar2(20);',
+'    l_payload    varchar2(4000);',
+'    l_sig        varchar2(64);',
+'    l_question   varchar2(4000);',
+'    l_body       clob;',
+'    l_response   clob;',
+'begin',
+'    l_secret   := apex_app_setting.get_value(p_name => ''APEX_FASTAPI_SHARED_SECRET'');',
+'    l_username := :APP_USER;',
+'    l_groups   := nvl(:G_APEX_GROUPS, '''');',
+'    l_ts       := to_char(round((cast(sys_extract_utc(systimestamp) as date) - date ''1970-01-01'') * 86400));',
+'    l_question := :P8_QUESTION;',
+'',
+'    l_payload := l_username || chr(10) || l_groups || chr(10) || l_ts;',
+'    l_sig := lower(rawtohex(dbms_crypto.mac(',
+'                 src => utl_raw.cast_to_raw(l_payload),',
+'                 typ => 3,',
+'                 key => utl_raw.cast_to_raw(l_secret))));',
+'',
+'    apex_json.initialize_clob_output;',
+'    apex_json.open_object;',
+'    apex_json.write(''question'', l_question);',
+'    apex_json.close_object;',
+'    l_body := apex_json.get_clob_output;',
+'    apex_json.free_output;',
+'',
+'    apex_web_service.g_request_headers(1).name  := ''Content-Type'';',
+'    apex_web_service.g_request_headers(1).value := ''application/json'';',
+'    apex_web_service.g_request_headers(2).name  := ''X-Apex-Username'';',
+'    apex_web_service.g_request_headers(2).value := l_username;',
+'    apex_web_service.g_request_headers(3).name  := ''X-Apex-Groups'';',
+'    apex_web_service.g_request_headers(3).value := l_groups;',
+'    apex_web_service.g_request_headers(4).name  := ''X-Apex-Timestamp'';',
+'    apex_web_service.g_request_headers(4).value := l_ts;',
+'    apex_web_service.g_request_headers(5).name  := ''X-Apex-Signature'';',
+'    apex_web_service.g_request_headers(5).value := l_sig;',
+'    apex_web_service.g_request_headers(6).name  := ''bypass-tunnel-reminder'';',
+'    apex_web_service.g_request_headers(6).value := ''true'';',
+'',
+'    l_response := apex_web_service.make_rest_request(',
+'                    p_url         => ''https://five-tools-poke.loca.lt/query'',',
+'                    p_http_method => ''POST'',',
+'                    p_body        => l_body);',
+'',
+'    :P8_RESULT := l_response;',
+'exception',
+'    when others then',
+'        :P8_RESULT := ''ERROR: '' || sqlerrm;',
+'end;'))
+,p_process_clob_language=>'PLSQL'
+,p_error_display_location=>'INLINE_IN_NOTIFICATION'
+,p_process_when_button_id=>wwv_flow_imp.id(12468533320862942)
+,p_internal_uid=>12468775059862944
 );
 end;
 /

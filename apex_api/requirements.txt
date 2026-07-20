@@ -1,0 +1,7 @@
+fastapi==0.139.2
+uvicorn==0.42.0
+pydantic==2.12.5
+anthropic==0.89.0
+oracledb==3.4.2
+oci==2.169.0
+python-dotenv==1.2.2

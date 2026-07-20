@@ -24,7 +24,8 @@
       "mcp__atlassian__createConfluencePage",
       "mcp__atlassian__updateConfluencePage",
       "Read(//tmp/**)",
-      "Bash(find / -maxdepth 6 -iname \"playwright-artifacts*\" -mmin -10)"
+      "Bash(find / -maxdepth 6 -iname \"playwright-artifacts*\" -mmin -10)",
+      "mcp__atlassian__searchJiraIssuesUsingJql"
     ]
   },
   "enableAllProjectMcpServers": true,
