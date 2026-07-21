@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olist Copilot — a cloud data + AI case study</title>
+<meta name="description" content="An Oracle APEX + FastAPI + Claude application built on the Olist Brazilian e-commerce dataset: text-to-SQL chat, an ML delivery predictor, and classic BI reporting, all on Oracle Autonomous Database.">
+<style>
+  :root{
+    --paper: #f3f1ec;
+    --ink: #181b1d;
+    --ink-soft: rgba(24,27,29,0.66);
+    --petrol: #0f4c5c;
+    --petrol-bright: #146a80;
+    --amber: #c9852a;
+    --line: rgba(24,27,29,0.14);
+    --card: #ffffff;
+    --code-bg: rgba(15,76,92,0.06);
+    --shadow: 0 1px 2px rgba(24,27,29,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper: #14181a;
+      --ink: #eeeae2;
+      --ink-soft: rgba(238,234,226,0.66);
+      --petrol: #6fc7dd;
+      --petrol-bright: #8fd6e8;
+      --amber: #e3a84e;
+      --line: rgba(238,234,226,0.16);
+      --card: #1b2023;
+      --code-bg: rgba(111,199,221,0.08);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #14181a; --ink: #eeeae2; --ink-soft: rgba(238,234,226,0.66);
+    --petrol: #6fc7dd; --petrol-bright: #8fd6e8; --amber: #e3a84e;
+    --line: rgba(238,234,226,0.16); --card: #1b2023; --code-bg: rgba(111,199,221,0.08);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  :root[data-theme="light"]{
+    --paper: #f3f1ec; --ink: #181b1d; --ink-soft: rgba(24,27,29,0.66);
+    --petrol: #0f4c5c; --petrol-bright: #146a80; --amber: #c9852a;
+    --line: rgba(24,27,29,0.14); --card: #ffffff; --code-bg: rgba(15,76,92,0.06);
+    --shadow: 0 1px 2px rgba(24,27,29,0.06);
+  }
+
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{ color:var(--petrol-bright); }
+  a:focus-visible, button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  h1,h2,h3{
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, ui-serif, serif;
+    font-weight:600; text-wrap:balance; margin:0 0 0.4em;
+  }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px; }
+  section{ padding: 64px 0; }
+  section + section{ border-top:1px solid var(--line); }
+
+  /* top bar */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 24px; max-width:1080px; margin:0 auto;
+  }
+  .topbar a{ text-decoration:none; color:var(--ink-soft); font-size:0.92rem; }
+  .topbar a:hover{ color:var(--petrol-bright); }
+
+  /* hero */
+  .hero{ padding-top:24px; }
+  .hero-grid{
+    display:grid; grid-template-columns: 1.1fr 1fr; gap:48px; align-items:center;
+  }
+  .eyebrow{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--petrol-bright); margin-bottom:14px; display:block;
+  }
+  .hero h1{ font-size: clamp(2.2rem, 4.4vw, 3.4rem); line-height:1.08; }
+  .hero h1 em{ font-style:normal; border-bottom:3px solid var(--amber); }
+  .hero p.pitch{ font-size:1.1rem; color:var(--ink-soft); max-width:52ch; margin:18px 0 26px; }
+  .hero-actions{ display:flex; gap:14px; flex-wrap:wrap; }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; padding:10px 18px;
+    border-radius:3px; text-decoration:none; font-size:0.94rem; font-weight:600;
+    border:1px solid var(--line);
+  }
+  .btn.primary{ background:var(--petrol); color:var(--paper); border-color:var(--petrol); }
+  .btn.ghost{ color:var(--ink); }
+  .hero-shot{
+    border:1px solid var(--line); border-radius:6px; overflow:hidden; box-shadow:var(--shadow);
+    transform: rotate(0.6deg);
+  }
+  .hero-shot img{ display:block; width:100%; height:auto; }
+
+  /* stat strip */
+  .stats{ padding: 40px 0; }
+  .stat-strip{
+    display:grid; grid-template-columns: repeat(4, 1fr); gap:0;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .stat{ padding:22px 20px; border-left:1px solid var(--line); }
+  .stat:first-child{ border-left:none; }
+  .stat .n{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:1.7rem; font-weight:600; font-variant-numeric: tabular-nums; }
+  .stat .l{ font-size:0.82rem; color:var(--ink-soft); margin-top:4px; }
+
+  /* features as a real list, mirrors actual nav order */
+  .feature-row{
+    display:grid; grid-template-columns: 160px 1fr; gap:28px;
+    padding:22px 0; border-top:1px solid var(--line);
+  }
+  .feature-row:last-child{ border-bottom:1px solid var(--line); }
+  .feature-row .tag{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:0.78rem; color:var(--petrol-bright); letter-spacing:0.04em;
+  }
+  .feature-row h3{ font-size:1.15rem; margin-bottom:6px; }
+  .feature-row p{ margin:0; color:var(--ink-soft); max-width:64ch; }
+
+  /* architecture pipeline */
+  .pipeline{
+    display:flex; align-items:stretch; gap:0; overflow-x:auto; padding-bottom:8px;
+  }
+  .pnode{
+    background:var(--card); border:1px solid var(--line); border-radius:6px;
+    padding:16px 18px; min-width:168px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:4px; flex-shrink:0;
+  }
+  .pnode .k{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.72rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; }
+  .pnode .v{ font-weight:600; }
+  .parrow{ display:flex; align-items:center; padding:0 14px; color:var(--ink-soft); font-size:1.3rem; flex-shrink:0; }
+  .pgroup{ display:flex; flex-direction:column; gap:8px; justify-content:center; }
+  .pnote{
+    margin-top:22px; padding:16px 18px; background:var(--code-bg); border-radius:6px;
+    font-size:0.92rem; color:var(--ink-soft); border-left:3px solid var(--petrol-bright);
+  }
+  .pnote strong{ color:var(--ink); }
+
+  /* filmstrip gallery */
+  .filmstrip{
+    display:flex; gap:16px; overflow-x:auto; padding: 8px 0 20px;
+    scroll-snap-type:x mandatory;
+  }
+  .frame{
+    flex:0 0 auto; width:min(560px, 82vw); scroll-snap-align:start;
+  }
+  .frame img{
+    width:100%; height:auto; display:block; border:1px solid var(--line);
+    border-radius:6px; box-shadow:var(--shadow);
+  }
+  .frame figcaption{ margin-top:8px; font-size:0.86rem; color:var(--ink-soft); }
+  .frame figcaption .mono{ color:var(--petrol-bright); }
+
+  /* tech tags */
+  .tagcloud{ display:flex; flex-wrap:wrap; gap:10px; }
+  .tagcloud span{
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size:0.82rem; padding:6px 12px; border:1px solid var(--line); border-radius:3px;
+    color:var(--ink-soft);
+  }
+
+  footer{ padding:40px 0 60px; }
+  footer .row{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+  footer p{ margin:0; color:var(--ink-soft); font-size:0.88rem; }
+
+  @media (max-width: 780px){
+    .hero-grid{ grid-template-columns:1fr; }
+    .hero-shot{ order:-1; transform:none; }
+    .stat-strip{ grid-template-columns: repeat(2,1fr); }
+    .stat:nth-child(3){ border-left:none; }
+    .feature-row{ grid-template-columns:1fr; gap:6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../">&larr; Portfolio wall</a>
+  <a href="https://github.com/Bouradanis/oci-ai-playground" target="_blank" rel="noopener">Source on GitHub &#8599;</a>
+</div>
+
+<header class="wrap hero">
+  <div class="hero-grid">
+    <div>
+      <span class="eyebrow">Case study / Oracle Cloud + Claude</span>
+      <h1>Olist Copilot: a marketplace's data, given a <em>voice</em>.</h1>
+      <p class="pitch">
+        A Brazilian e-commerce dataset — 99k real orders, sellers, reviews, and shipments —
+        loaded into an Oracle Autonomous Database and fronted by Oracle APEX. Ask it a question
+        in plain English and it writes the SQL itself; ask it about a shipment and a trained
+        regression model predicts the delay.
+      </p>
+      <div class="hero-actions">
+        <a class="btn primary" href="#architecture">How it's wired</a>
+        <a class="btn ghost" href="#tour">Walk through the pages</a>
+      </div>
+    </div>
+    <figure class="hero-shot">
+      <img src="assets/chat.png" alt="Olist Copilot's Chat page: a natural-language question returns a bar chart and data table, styled to match the rest of the app.">
+    </figure>
+  </div>
+</header>
+
+<section class="stats">
+  <div class="wrap">
+    <div class="stat-strip">
+      <div class="stat"><div class="n">99,441</div><div class="l">orders, 2016&ndash;2018</div></div>
+      <div class="stat"><div class="n">R$15.8M</div><div class="l">total revenue modeled</div></div>
+      <div class="stat"><div class="n">3,095</div><div class="l">sellers across Brazil</div></div>
+      <div class="stat"><div class="n">4.09 / 5</div><div class="l">average review score</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="tour">
+  <div class="wrap">
+    <span class="eyebrow">The app, page by page</span>
+    <h2>Six pages, in the order you'd actually click them</h2>
+
+    <div class="feature-row">
+      <span class="tag">01 · dashboard</span>
+      <div>
+        <h3>KPI cards and two native charts</h3>
+        <p>Revenue, order count, and average review score at a glance, plus revenue-by-category
+        and orders-over-time — built as plain Oracle APEX regions over live SQL, no app logic involved.</p>
+      </div>
+    </div>
+    <div class="feature-row">
+      <span class="tag">02&ndash;03 · orders / sellers</span>
+      <div>
+        <h3>Interactive Report and Interactive Grid</h3>
+        <p>The classic APEX reporting pair: a searchable, drillable order history and a seller
+        leaderboard with revenue and review-score rollups — the part of the app that needed
+        no AI at all to be useful.</p>
+      </div>
+    </div>
+    <div class="feature-row">
+      <span class="tag">04 · delivery estimate</span>
+      <div>
+        <h3>A trained model, called live</h3>
+        <p>Enter a shipment's weight, distance, and price and a GLM regression model — trained
+        separately in OML4Py, served through FastAPI — predicts how many days early or late it'll
+        arrive, plotted on a Leaflet map.</p>
+      </div>
+    </div>
+    <div class="feature-row">
+      <span class="tag">05 · chat</span>
+      <div>
+        <h3>Text-to-SQL, with a chart when it fits</h3>
+        <p>A free-text question goes to Claude, which writes a read-only SELECT against the live
+        schema; the result renders as a table and, when the shape allows, a Chart.js bar chart —
+        entirely client-side, so FastAPI only ever returns JSON.</p>
+      </div>
+    </div>
+    <div class="feature-row">
+      <span class="tag">06 · info</span>
+      <div>
+        <h3>The schema, explained</h3>
+        <p>A plain-language tour of the nine underlying tables and how they join, plus five
+        ready-to-try example questions for the Chat page.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="wrap">
+    <span class="eyebrow">Under the hood</span>
+    <h2>APEX doesn't trust the browser with anything sensitive</h2>
+    <p style="max-width:66ch; color:var(--ink-soft)">
+      There's no client-visible token to steal and no password rendered in a page anywhere.
+      APEX signs every request server-side; FastAPI verifies the signature server-side.
+      The browser only ever sees JSON.
+    </p>
+
+    <div class="pipeline">
+      <div class="pnode"><span class="k">Browser</span><span class="v">OIDC login</span></div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode"><span class="k">Oracle APEX</span><span class="v">PL/SQL signs request<br>with a shared HMAC key</span></div>
+      <div class="parrow">&rarr;</div>
+      <div class="pnode"><span class="k">FastAPI</span><span class="v">on OCI Compute,<br>verifies signature</span></div>
+      <div class="parrow">&rarr;</div>
+      <div class="pgroup">
+        <div class="pnode"><span class="k">Claude</span><span class="v">writes the SQL</span></div>
+        <div class="pnode"><span class="k">Oracle ADB</span><span class="v">runs it, read-only</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Proof, not just claims</span>
+    <h2>What it actually looks like</h2>
+    <div class="filmstrip">
+      <figure class="frame">
+        <img src="assets/dashboard.png" alt="Dashboard page with KPI cards and two bar charts">
+        <figcaption><span class="mono">01</span> Dashboard — KPI cards, revenue by category, orders over time</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="assets/orders.png" alt="Orders Interactive Report with the Download dialog open, CSV format selected">
+        <figcaption><span class="mono">02</span> Orders — Interactive Report, built-in export to CSV/Excel/PDF</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="assets/sellers.png" alt="Sellers Interactive Grid with revenue and review score columns">
+        <figcaption><span class="mono">03</span> Sellers — Interactive Grid, 3,095 sellers</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="assets/delivery-estimate.png" alt="Delivery Estimate page showing a predicted delay and a Leaflet map with the seller-to-customer route">
+        <figcaption><span class="mono">04</span> Delivery Estimate — GLM prediction plotted on a live route map</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="assets/chat.png" alt="Chat page showing a natural language question and a resulting bar chart">
+        <figcaption><span class="mono">05</span> Chat — plain-English question, generated SQL, live chart</figcaption>
+      </figure>
+      <figure class="frame">
+        <img src="assets/info.png" alt="Info page with an entity relationship diagram of the Olist schema">
+        <figcaption><span class="mono">06</span> Info — the schema, drawn out</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Built with</span>
+    <div class="tagcloud">
+      <span>Oracle Autonomous Database</span>
+      <span>Oracle APEX 24.2</span>
+      <span>FastAPI</span>
+      <span>Python 3.12</span>
+      <span>Claude (Anthropic)</span>
+      <span>OML4Py / GLM</span>
+      <span>Chart.js</span>
+      <span>Leaflet.js</span>
+      <span>OCI Compute</span>
+      <span>OCI Identity Domain OIDC</span>
+      <span>nginx + Let's Encrypt</span>
+      <span>HMAC-SHA256</span>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <div class="row">
+    <p>Part of the <a href="../">OCI AI Playground</a> portfolio &mdash; built by Andreas Bourantanis.</p>
+    <p><a href="https://github.com/Bouradanis/oci-ai-playground">github.com/Bouradanis/oci-ai-playground</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

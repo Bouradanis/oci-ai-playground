@@ -12,3 +12,5 @@ lightgbm==4.6.0
 scikit-learn==1.8.0
 folium==0.20.0
 streamlit-folium==0.27.2
+fastapi==0.139.2
+uvicorn==0.42.0
