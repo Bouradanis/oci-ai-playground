@@ -406,3 +406,24 @@ Pages 5–7 port the remaining Streamlit features (`tools/predict.py`, `tools/ia
 - Secrets (.env) stay on the VM — never passed to APEX
 - APEX calls FastAPI via `apex_web_service.make_rest_request()` in a PL/SQL process
 - Session state protection: all URL-passed items must be set to Restricted from day one
+
+---
+
+## Backlog & future ideas — where things get tracked
+
+Three different tools, three different jobs — don't mix them up:
+
+- **Jira** (`abouradanis.atlassian.net`, project `KAN`) — active, scoped work only:
+  epics and subtasks for what's actually being built right now, e.g. the current
+  Olist Copilot pages. If it has a clear next action this session or sprint, it's Jira.
+- **Confluence** (space `DS` — "Data Science") — documentation of what was actually
+  built, and non-obvious gotchas/platform bugs, written as they're found.
+- **Trello** — backlog and future ideas that are *not* scoped or actively planned yet:
+  new app concepts, "would be nice" features, things logged for later with no current
+  owner or timeline. When a Trello card's idea gets picked up for real, promote it to
+  a Jira epic (as already happened for KAN-17/18/19 below) rather than working it
+  directly from Trello.
+
+Connected via the official Anthropic-hosted Trello MCP connector (OAuth, added through
+the Claude Code app's Connectors settings) — not a repo-local MCP server, no credentials
+of any kind live in this repo for it.
