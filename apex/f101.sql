@@ -33,7 +33,7 @@ prompt APPLICATION 101 - Olist Copilot
 -- Application Export:
 --   Application:     101
 --   Name:            Olist Copilot
---   Date and Time:   20:59 Tuesday July 21, 2026
+--   Date and Time:   22:16 Tuesday July 21, 2026
 --   Exported By:     OLIST_ADMIN
 --   Flashback:       0
 --   Export Type:     Application Export
@@ -46,7 +46,7 @@ prompt APPLICATION 101 - Olist Copilot
 --     Shared Components:
 --       Logic:
 --         Items:                  2
---         App Settings:           1
+--         App Settings:           2
 --         Build Options:          1
 --       Navigation:
 --         Lists:                  2
@@ -111,7 +111,7 @@ wwv_imp_workspace.create_flow(
 ,p_substitution_value_01=>'Olist Copilot'
 ,p_file_prefix => nvl(wwv_flow_application_install.get_static_app_file_prefix,'')
 ,p_files_version=>7
-,p_version_scn=>49823873061856
+,p_version_scn=>49823884329049
 ,p_print_server_type=>'NATIVE'
 ,p_file_storage=>'DB'
 ,p_is_pwa=>'Y'
@@ -3043,6 +3043,13 @@ wwv_flow_imp_shared.create_app_setting(
 ,p_is_required=>'N'
 ,p_version_scn=>49823600100031
 );
+wwv_flow_imp_shared.create_app_setting(
+ p_id=>wwv_flow_imp.id(12649589789477815)
+,p_name=>'FASTAPI_BASE_URL'
+,p_value=>'REDACTED_SEE_APEX_APP_SETTING_FASTAPI_BASE_URL'
+,p_is_required=>'N'
+,p_version_scn=>49823883809617
+);
 end;
 /
 prompt --application/shared_components/navigation/tabs/standard
@@ -4688,17 +4695,18 @@ wwv_flow_imp_page.create_page_process(
 ,p_process_point=>'AFTER_SUBMIT'
 ,p_process_type=>'NATIVE_PLSQL'
 ,p_process_name=>'Call FastAPI Predict Endpoint'
-,p_process_sql_clob=>'declare l_secret varchar2(200); l_username varchar2(400); l_groups varchar2(4000); l_ts varchar2(20); l_payload varchar2(4000); l_sig varchar2(64); l_body clob; l_response clob; begin l_secret := apex_app_setting.get_value(p_name => ''APEX_FASTAPI_SHA'
-||'RED_SECRET''); l_username := :APP_USER; l_groups := nvl(:G_APEX_GROUPS, ''''); l_ts := to_char(round((cast(sys_extract_utc(systimestamp) as date) - date ''1970-01-01'') * 86400)); l_payload := l_username || chr(10) || l_groups || chr(10) || l_ts; l_sig :='
-||' lower(rawtohex(dbms_crypto.mac( src => utl_raw.cast_to_raw(l_payload), typ => 3, key => utl_raw.cast_to_raw(l_secret)))); apex_json.initialize_clob_output; apex_json.open_object; apex_json.write(''PROMISED_DELIVERY_DAYS'', to_number(:P6_PROMISED_DELIV'
-||'ERY_DAYS)); apex_json.write(''NUM_ITEMS'', to_number(:P6_NUM_ITEMS)); apex_json.write(''TOTAL_PRICE'', to_number(:P6_TOTAL_PRICE)); apex_json.write(''TOTAL_FREIGHT_VALUE'', to_number(:P6_TOTAL_FREIGHT_VALUE)); apex_json.write(''TOTAL_WEIGHT_G'', to_number(:P'
-||'6_TOTAL_WEIGHT_G)); apex_json.write(''PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH'', :P6_PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH); apex_json.write(''PRIMARY_SELLER_STATE'', :P6_PRIMARY_SELLER_STATE); apex_json.write(''HEAVIEST_PRODUCT_WEIGHT_G'', to_number(:P6_HEA'
-||'VIEST_PRODUCT_WEIGHT_G)); apex_json.write(''HEAVIEST_PRODUCT_LENGTH_CM'', to_number(:P6_HEAVIEST_PRODUCT_LENGTH_CM)); apex_json.write(''HEAVIEST_PRODUCT_HEIGHT_CM'', to_number(:P6_HEAVIEST_PRODUCT_HEIGHT_CM)); apex_json.write(''HEAVIEST_PRODUCT_WIDTH_CM'','
-||' to_number(:P6_HEAVIEST_PRODUCT_WIDTH_CM)); apex_json.write(''CUSTOMER_STATE'', :P6_CUSTOMER_STATE); apex_json.close_object; l_body := apex_json.get_clob_output; apex_json.free_output; apex_web_service.g_request_headers(1).name := ''Content-Type''; apex_'
-||'web_service.g_request_headers(1).value := ''application/json''; apex_web_service.g_request_headers(2).name := ''X-Apex-Username''; apex_web_service.g_request_headers(2).value := l_username; apex_web_service.g_request_headers(3).name := ''X-Apex-Groups''; a'
-||'pex_web_service.g_request_headers(3).value := l_groups; apex_web_service.g_request_headers(4).name := ''X-Apex-Timestamp''; apex_web_service.g_request_headers(4).value := l_ts; apex_web_service.g_request_headers(5).name := ''X-Apex-Signature''; apex_web_'
-||'service.g_request_headers(5).value := l_sig; apex_web_service.g_request_headers(6).name := ''bypass-tunnel-reminder''; apex_web_service.g_request_headers(6).value := ''true''; l_response := apex_web_service.make_rest_request( p_url => ''https://152-70-45-'
-||'26.nip.io/predict'', p_http_method => ''POST'', p_body => l_body, p_transfer_timeout => 90); :P6_RESULT := l_response; exception when others then :P6_RESULT := ''ERROR: '' || dbms_utility.format_error_stack || dbms_utility.format_error_backtrace; end;'
+,p_process_sql_clob=>'declare l_secret varchar2(200); l_base_url varchar2(200); l_username varchar2(400); l_groups varchar2(4000); l_ts varchar2(20); l_payload varchar2(4000); l_sig varchar2(64); l_body clob; l_response clob; begin l_secret := apex_app_setting.get_value(p'
+||'_name => ''APEX_FASTAPI_SHARED_SECRET''); l_base_url := apex_app_setting.get_value(p_name => ''FASTAPI_BASE_URL''); l_username := :APP_USER; l_groups := nvl(:G_APEX_GROUPS, ''''); l_ts := to_char(round((cast(sys_extract_utc(systimestamp) as date) - date ''1'
+||'970-01-01'') * 86400)); l_payload := l_username || chr(10) || l_groups || chr(10) || l_ts; l_sig := lower(rawtohex(dbms_crypto.mac( src => utl_raw.cast_to_raw(l_payload), typ => 3, key => utl_raw.cast_to_raw(l_secret)))); apex_json.initialize_clob_out'
+||'put; apex_json.open_object; apex_json.write(''PROMISED_DELIVERY_DAYS'', to_number(:P6_PROMISED_DELIVERY_DAYS)); apex_json.write(''NUM_ITEMS'', to_number(:P6_NUM_ITEMS)); apex_json.write(''TOTAL_PRICE'', to_number(:P6_TOTAL_PRICE)); apex_json.write(''TOTAL_F'
+||'REIGHT_VALUE'', to_number(:P6_TOTAL_FREIGHT_VALUE)); apex_json.write(''TOTAL_WEIGHT_G'', to_number(:P6_TOTAL_WEIGHT_G)); apex_json.write(''PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH'', :P6_PRIMARY_PRODUCT_CATEGORY_NAME_ENGLISH); apex_json.write(''PRIMARY_SELLER'
+||'_STATE'', :P6_PRIMARY_SELLER_STATE); apex_json.write(''HEAVIEST_PRODUCT_WEIGHT_G'', to_number(:P6_HEAVIEST_PRODUCT_WEIGHT_G)); apex_json.write(''HEAVIEST_PRODUCT_LENGTH_CM'', to_number(:P6_HEAVIEST_PRODUCT_LENGTH_CM)); apex_json.write(''HEAVIEST_PRODUCT_HE'
+||'IGHT_CM'', to_number(:P6_HEAVIEST_PRODUCT_HEIGHT_CM)); apex_json.write(''HEAVIEST_PRODUCT_WIDTH_CM'', to_number(:P6_HEAVIEST_PRODUCT_WIDTH_CM)); apex_json.write(''CUSTOMER_STATE'', :P6_CUSTOMER_STATE); apex_json.close_object; l_body := apex_json.get_clob_'
+||'output; apex_json.free_output; apex_web_service.g_request_headers(1).name := ''Content-Type''; apex_web_service.g_request_headers(1).value := ''application/json''; apex_web_service.g_request_headers(2).name := ''X-Apex-Username''; apex_web_service.g_reques'
+||'t_headers(2).value := l_username; apex_web_service.g_request_headers(3).name := ''X-Apex-Groups''; apex_web_service.g_request_headers(3).value := l_groups; apex_web_service.g_request_headers(4).name := ''X-Apex-Timestamp''; apex_web_service.g_request_hea'
+||'ders(4).value := l_ts; apex_web_service.g_request_headers(5).name := ''X-Apex-Signature''; apex_web_service.g_request_headers(5).value := l_sig; apex_web_service.g_request_headers(6).name := ''bypass-tunnel-reminder''; apex_web_service.g_request_headers('
+||'6).value := ''true''; l_response := apex_web_service.make_rest_request( p_url => l_base_url || ''/predict'', p_http_method => ''POST'', p_body => l_body, p_transfer_timeout => 90); :P6_RESULT := l_response; exception when others then :P6_RESULT := ''ERROR: '
+||''' || dbms_utility.format_error_stack || dbms_utility.format_error_backtrace; end;'
 ,p_process_clob_language=>'PLSQL'
 ,p_error_display_location=>'INLINE_IN_NOTIFICATION'
 ,p_process_when_button_id=>wwv_flow_imp.id(12529339354799708)
@@ -4904,14 +4912,15 @@ wwv_flow_imp_page.create_page_process(
 ,p_process_point=>'AFTER_SUBMIT'
 ,p_process_type=>'NATIVE_PLSQL'
 ,p_process_name=>'Call FastAPI Query Endpoint'
-,p_process_sql_clob=>'declare l_secret varchar2(200); l_username varchar2(400); l_groups varchar2(4000); l_ts varchar2(20); l_payload varchar2(4000); l_sig varchar2(64); l_question varchar2(4000); l_body clob; l_response clob; begin l_secret := apex_app_setting.get_value('
-||'p_name => ''APEX_FASTAPI_SHARED_SECRET''); l_username := :APP_USER; l_groups := nvl(:G_APEX_GROUPS, ''''); l_ts := to_char(round((cast(sys_extract_utc(systimestamp) as date) - date ''1970-01-01'') * 86400)); l_question := :P8_QUESTION; l_payload := l_usern'
-||'ame || chr(10) || l_groups || chr(10) || l_ts; l_sig := lower(rawtohex(dbms_crypto.mac( src => utl_raw.cast_to_raw(l_payload), typ => 3, key => utl_raw.cast_to_raw(l_secret)))); apex_json.initialize_clob_output; apex_json.open_object; apex_json.write'
-||'(''question'', l_question); apex_json.close_object; l_body := apex_json.get_clob_output; apex_json.free_output; apex_web_service.g_request_headers(1).name := ''Content-Type''; apex_web_service.g_request_headers(1).value := ''application/json''; apex_web_se'
-||'rvice.g_request_headers(2).name := ''X-Apex-Username''; apex_web_service.g_request_headers(2).value := l_username; apex_web_service.g_request_headers(3).name := ''X-Apex-Groups''; apex_web_service.g_request_headers(3).value := l_groups; apex_web_service.'
-||'g_request_headers(4).name := ''X-Apex-Timestamp''; apex_web_service.g_request_headers(4).value := l_ts; apex_web_service.g_request_headers(5).name := ''X-Apex-Signature''; apex_web_service.g_request_headers(5).value := l_sig; apex_web_service.g_request_h'
-||'eaders(6).name := ''bypass-tunnel-reminder''; apex_web_service.g_request_headers(6).value := ''true''; l_response := apex_web_service.make_rest_request( p_url => ''https://152-70-45-26.nip.io/query'', p_http_method => ''POST'', p_body => l_body, p_transfer_t'
-||'imeout => 90); :P8_RESULT := l_response; exception when others then :P8_RESULT := ''ERROR: '' || dbms_utility.format_error_stack || dbms_utility.format_error_backtrace; end;'
+,p_process_sql_clob=>'declare l_secret varchar2(200); l_base_url varchar2(200); l_username varchar2(400); l_groups varchar2(4000); l_ts varchar2(20); l_payload varchar2(4000); l_sig varchar2(64); l_question varchar2(4000); l_body clob; l_response clob; begin l_secret := a'
+||'pex_app_setting.get_value(p_name => ''APEX_FASTAPI_SHARED_SECRET''); l_base_url := apex_app_setting.get_value(p_name => ''FASTAPI_BASE_URL''); l_username := :APP_USER; l_groups := nvl(:G_APEX_GROUPS, ''''); l_ts := to_char(round((cast(sys_extract_utc(systi'
+||'mestamp) as date) - date ''1970-01-01'') * 86400)); l_question := :P8_QUESTION; l_payload := l_username || chr(10) || l_groups || chr(10) || l_ts; l_sig := lower(rawtohex(dbms_crypto.mac( src => utl_raw.cast_to_raw(l_payload), typ => 3, key => utl_raw.'
+||'cast_to_raw(l_secret)))); apex_json.initialize_clob_output; apex_json.open_object; apex_json.write(''question'', l_question); apex_json.close_object; l_body := apex_json.get_clob_output; apex_json.free_output; apex_web_service.g_request_headers(1).name'
+||' := ''Content-Type''; apex_web_service.g_request_headers(1).value := ''application/json''; apex_web_service.g_request_headers(2).name := ''X-Apex-Username''; apex_web_service.g_request_headers(2).value := l_username; apex_web_service.g_request_headers(3).n'
+||'ame := ''X-Apex-Groups''; apex_web_service.g_request_headers(3).value := l_groups; apex_web_service.g_request_headers(4).name := ''X-Apex-Timestamp''; apex_web_service.g_request_headers(4).value := l_ts; apex_web_service.g_request_headers(5).name := ''X-A'
+||'pex-Signature''; apex_web_service.g_request_headers(5).value := l_sig; apex_web_service.g_request_headers(6).name := ''bypass-tunnel-reminder''; apex_web_service.g_request_headers(6).value := ''true''; l_response := apex_web_service.make_rest_request( p_u'
+||'rl => l_base_url || ''/query'', p_http_method => ''POST'', p_body => l_body, p_transfer_timeout => 90); :P8_RESULT := l_response; exception when others then :P8_RESULT := ''ERROR: '' || dbms_utility.format_error_stack || dbms_utility.format_error_backtrace'
+||'; end;'
 ,p_process_clob_language=>'PLSQL'
 ,p_error_display_location=>'INLINE_IN_NOTIFICATION'
 ,p_process_when_button_id=>wwv_flow_imp.id(12468533320862942)

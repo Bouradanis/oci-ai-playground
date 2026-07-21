@@ -29,7 +29,8 @@
       "mcp__claude_ai_Trello__trelloReadBoard",
       "mcp__claude_ai_Trello__trelloReadList",
       "mcp__claude_ai_Trello__trelloWriteCard",
-      "mcp__playwright__browser_evaluate"
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_hover"
     ]
   },
   "enableAllProjectMcpServers": true,
