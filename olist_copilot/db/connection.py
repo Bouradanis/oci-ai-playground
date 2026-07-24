@@ -24,6 +24,8 @@ def _connect() -> oracledb.Connection:
         user=creds['user_name'],
         password=creds['password'],
         dsn=creds['dsn'],
+        wallet_location=os.environ['TNS_ADMIN'],
+        wallet_password=os.environ['ORACLETESTDB_WALLET_PASSWORD'],
     )
 
 
