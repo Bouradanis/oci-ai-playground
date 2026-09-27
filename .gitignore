@@ -223,3 +223,6 @@ Wallet*.zip
 
 # Large local dependency jars (e.g. synthea-with-dependencies.jar)
 *.jar
+screenshots/
+/bday_app/
+/static_websites/
